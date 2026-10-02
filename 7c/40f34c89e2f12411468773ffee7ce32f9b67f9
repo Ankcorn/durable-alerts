@@ -1,0 +1,53 @@
+.changeset/config.json
+  s_ebd7399d66f0be::t_109ca90a98f641 1-11
+.changeset/first-release.md
+  s_ebd7399d66f0be::t_fdb761a8489f12 1-5
+.oxlintrc.json
+  s_ebd7399d66f0be::t_0b67c16e332190 1-21
+LICENSE
+  s_ebd7399d66f0be::t_d3fb83277a6e4b 1-21
+pnpm-workspace.yaml
+  s_ebd7399d66f0be::t_cb5e441b65b5d6 1-7
+src/condition.ts
+  s_ebd7399d66f0be::t_36c4952b168b8c 1-28
+src/define.ts
+  s_ebd7399d66f0be::t_1962a92c873589 1-101
+src/duration.ts
+  s_ebd7399d66f0be::t_2907571b2a6758 1-16
+src/index.ts
+  s_ebd7399d66f0be::t_3081543a639659 1-33
+src/sql.ts
+  s_ebd7399d66f0be::t_c6b52f7d3f766f 1-66
+src/tests/alerts.test.ts
+  s_ebd7399d66f0be::t_e4a088bee0feca 1-322
+src/tests/tsconfig.json
+  s_ebd7399d66f0be::t_b17d597daabeff 1-14
+src/tests/worker.ts
+  s_ebd7399d66f0be::t_9b8878a12e7b14 1-193
+src/tests/wrangler.jsonc
+  s_ebd7399d66f0be::t_aea38167a1e229 1-9
+src/types.ts
+  s_ebd7399d66f0be::t_536c0674e2acca 1-307
+tsconfig.json
+  s_ebd7399d66f0be::t_2e272eee883d9f 1-21
+tsdown.config.ts
+  s_ebd7399d66f0be::t_e76f1a69977412 1-13
+vitest.config.ts
+  s_ebd7399d66f0be::t_37e2d4d18482ac 1-13
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "7c40f34c89e2f12411468773ffee7ce32f9b67f9",
+  "prompts": {},
+  "sessions": {
+    "s_ebd7399d66f0be": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_f0448c1f2ffeCluU1lXrasOsTq",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Thomas Ankcorn <tankcorn@cloudflare.com>"
+    }
+  }
+}
