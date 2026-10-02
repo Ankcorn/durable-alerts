@@ -1,0 +1,23 @@
+src/alerts.ts
+  s_16f02d46d695f1::t_61faf237863dbe 51,646,720
+src/tests/alerts.test.ts
+  s_16f02d46d695f1::t_747eaa35504ae6 43
+src/tests/worker.ts
+  s_16f02d46d695f1::t_f7b8662d77e45f 72,104
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "06cb7313ef0b1611d8f1a930483511ac7704f8a5",
+  "prompts": {},
+  "sessions": {
+    "s_16f02d46d695f1": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a0fbec-50f0-76e0-b264-652a0b247a12",
+        "model": "unknown"
+      },
+      "human_author": "Thomas Ankcorn <tankcorn@cloudflare.com>"
+    }
+  }
+}
