@@ -281,7 +281,10 @@ export interface Alerts {
     readonly alert?: string;
     readonly limit?: number;
   }): Promise<IncidentRecord[]>;
-  /** Run one alert now, outside its schedule. */
+  /**
+   * Run one alert, processing a pending retry or oldest due window first.
+   * With no backlog, run an extra current-window check without moving the schedule.
+   */
   check(name: string): Promise<CheckResult>;
   /** Resolve an incident by hand. Calls `onResolve` with reason `"manual"`. */
   resolve(incidentId: string): Promise<void>;

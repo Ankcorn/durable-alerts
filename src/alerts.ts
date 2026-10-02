@@ -296,7 +296,17 @@ class AlertsRuntime implements Alerts {
     this.#entry(name);
     return this.#exclusive(async () => {
       try {
-        const result = await this.#evaluate(name);
+        const { next_run_at } = this.#sql
+          .exec<Pick<AlertRow, "next_run_at">>(
+            `SELECT next_run_at FROM ${ALERTS} WHERE name = ?`,
+            name
+          )
+          .one();
+        // Process an overdue window before allowing a newer manual window.
+        const result = await this.#evaluate(
+          name,
+          next_run_at <= this.#now() ? next_run_at : undefined
+        );
         await this.#deliver();
         return result;
       } finally {

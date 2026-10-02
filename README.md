@@ -133,13 +133,15 @@ Expose these over RPC for a dashboard or a chat tool:
 ```ts
 await this.alerts.status(); // alerts, next check, last error, open count
 await this.alerts.incidents({ status: "open" });
-await this.alerts.check("error-rate"); // run now, outside the schedule
+await this.alerts.check("error-rate"); // process the oldest pending window, or check now
 await this.alerts.resolve(incidentId); // calls onResolve with reason "manual"
 await this.alerts.pause("error-rate", "1h");
 await this.alerts.resume("error-rate");
 ```
 
 Pausing skips the paused period. A timed pause starts checking again at expiry; `resume()` starts from now. Neither replays the paused gap. A pending SQL retry still completes its original saved window before continuing from the new schedule.
+
+Manual checks preserve evaluation order: a saved retry takes priority and respects its backoff, then overdue scheduled windows are processed one at a time. With no backlog, `check()` queries the current window without moving the schedule.
 
 Resolved incidents are kept for 7 days (`retention` option).
 
