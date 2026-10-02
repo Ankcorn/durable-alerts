@@ -11,15 +11,15 @@
     "observability",
     "workers"
   ],
+  "homepage": "https://github.com/Ankcorn/durable-alerts#readme",
+  "bugs": {
+    "url": "https://github.com/Ankcorn/durable-alerts/issues"
+  },
   "license": "MIT",
   "author": "Thomas Ankcorn",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/Ankcorn/durable-alerts.git"
-  },
-  "homepage": "https://github.com/Ankcorn/durable-alerts#readme",
-  "bugs": {
-    "url": "https://github.com/Ankcorn/durable-alerts/issues"
   },
   "files": [
     "dist",
