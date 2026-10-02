@@ -1,0 +1,12 @@
+node_modules
+dist
+.wrangler
+*.tgz
+.DS_Store
+examples/*/worker-configuration.d.ts
+.cloudflare
+.pnpm-store
+.env
+.env.*
+.dev.vars
+.dev.vars.*

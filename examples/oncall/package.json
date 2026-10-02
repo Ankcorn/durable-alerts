@@ -1,0 +1,14 @@
+{
+  "name": "durable-alerts-example-oncall",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev --experimental-new-config",
+    "deploy": "wrangler deploy --experimental-new-config",
+    "typecheck": "tsgo --noEmit"
+  },
+  "dependencies": {
+    "@cloudflare/config": "0.22.0",
+    "durable-alerts": "workspace:*"
+  }
+}

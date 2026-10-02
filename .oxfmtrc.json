@@ -1,0 +1,12 @@
+{
+  "$schema": "./node_modules/oxfmt/configuration_schema.json",
+  "trailingComma": "none",
+  "printWidth": 80,
+  "ignorePatterns": [
+    "dist",
+    "CHANGELOG.md",
+    "**/worker-configuration.d.ts",
+    "**/.cloudflare/**",
+    ".pnpm-store"
+  ]
+}

@@ -1,0 +1,68 @@
+{
+  "name": "durable-alerts",
+  "version": "0.0.0",
+  "description": "Threshold alerts over Analytics SQL that live inside any Cloudflare Durable Object",
+  "keywords": [
+    "alerting",
+    "alerts",
+    "analytics",
+    "cloudflare",
+    "durable-objects",
+    "observability",
+    "workers"
+  ],
+  "license": "MIT",
+  "author": "Thomas Ankcorn",
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "type": "module",
+  "sideEffects": false,
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "scripts": {
+    "build": "tsdown",
+    "dev": "tsdown --watch",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsgo --noEmit && tsgo --noEmit -p src/tests",
+    "lint": "oxlint .",
+    "format": "oxfmt --write .",
+    "format:check": "oxfmt --check .",
+    "check:package": "publint --strict && attw --pack . --profile esm-only",
+    "check": "pnpm run format:check && pnpm run lint && pnpm run typecheck && pnpm run check:package",
+    "ci": "pnpm run build && pnpm run check && pnpm run test",
+    "changeset": "changeset",
+    "release": "pnpm run ci && changeset publish",
+    "prepublishOnly": "pnpm run build"
+  },
+  "devDependencies": {
+    "@arethetypeswrong/cli": "^0.18.5",
+    "@changesets/changelog-github": "^1.0.1",
+    "@changesets/cli": "^3.0.3",
+    "@cloudflare/vitest-pool-workers": "^0.22.0",
+    "@cloudflare/workers-types": "^5.20261001.1",
+    "@typescript/native-preview": "7.0.0-dev.20260707.2",
+    "@vitest/runner": "^4.1.11",
+    "@vitest/snapshot": "^4.1.11",
+    "oxfmt": "^0.71.0",
+    "oxlint": "^1.86.0",
+    "publint": "^0.3.24",
+    "tsdown": "^0.23.0",
+    "typescript": "^7.0.2",
+    "vitest": "^4.1.11",
+    "wrangler": "4.145.0"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "packageManager": "pnpm@11.9.0"
+}

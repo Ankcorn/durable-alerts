@@ -1,0 +1,9 @@
+{
+  "name": "durable-alerts-tests",
+  "main": "./worker.ts",
+  "compatibility_date": "2026-08-15",
+  "durable_objects": {
+    "bindings": [{ "name": "ALERTS", "class_name": "TestAlerts" }]
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["TestAlerts"] }]
+}
