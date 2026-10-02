@@ -48,6 +48,7 @@ type IncidentRow = {
   fired: string | null;
   fire_delivery: DeliveryState;
   resolve_delivery: DeliveryState | null;
+  // Legacy retry columns are retained for databases created by 0.1.0.
   attempts: number;
   next_attempt_at: number | null;
   delivery_error: string | null;
@@ -642,8 +643,7 @@ class AlertsRuntime implements Alerts {
     for (let pass = 0; pass < 2; pass++) {
       const incident = this.#incident(id);
       if (!incident || incident.next_attempt_at === null) return;
-      const now = this.#now();
-      if (incident.next_attempt_at > now) return;
+      if (incident.next_attempt_at > this.#now()) return;
 
       const kind =
         incident.fire_delivery === "pending"
@@ -717,14 +717,8 @@ class AlertsRuntime implements Alerts {
           error
         });
         this.#sql.exec(
-          `UPDATE ${INCIDENTS} SET
-             ${kind}_delivery = 'failed', delivery_error = ?, next_attempt_at = NULL,
-             resolve_delivery = CASE
-               WHEN ? = 'fire' AND resolve_delivery = 'pending' THEN 'skipped'
-               ELSE resolve_delivery END
-           WHERE id = ?`,
+          `UPDATE ${INCIDENTS} SET delivery_error = ? WHERE id = ?`,
           message(error),
-          kind,
           id
         );
         return;

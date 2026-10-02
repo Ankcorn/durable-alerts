@@ -40,7 +40,7 @@ describe("alerts", () => {
     let calls = await stub.calls();
     expect(calls.filter((c) => c.alert === "errors")).toHaveLength(1);
     const [fired] = calls;
-    expect(fired).toMatchObject({ kind: "fire", key: "", attempt: 1 });
+    expect(fired).toMatchObject({ kind: "fire", key: "" });
     expect(fired?.id).toBe(`errors/${BASE}`);
 
     await stub.setRows("errors", [{ errors: 3 }]);

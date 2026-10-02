@@ -15,7 +15,6 @@ type Call = {
   alert: string;
   id: string;
   key: string;
-  attempt: number;
   reason?: string;
   fired?: { pageId: string } | null;
   lastRow?: Row;
@@ -70,8 +69,7 @@ export class TestAlerts extends DurableObject {
         kind: "fire",
         alert: incident.alert,
         id: incident.id,
-        key: incident.key,
-        attempt: 1
+        key: incident.key
       });
     },
     onResolve: (incident) => {
@@ -80,7 +78,6 @@ export class TestAlerts extends DurableObject {
         alert: incident.alert,
         id: incident.id,
         key: incident.key,
-        attempt: 1,
         reason: incident.reason
       });
     }
@@ -104,8 +101,7 @@ export class TestAlerts extends DurableObject {
           kind: "fire",
           alert: incident.alert,
           id: incident.id,
-          key: incident.key,
-          attempt: 1
+          key: incident.key
         });
         return { pageId: `page:${incident.id}` };
       },
@@ -116,7 +112,6 @@ export class TestAlerts extends DurableObject {
           alert: incident.alert,
           id: incident.id,
           key: incident.key,
-          attempt: 1,
           reason: incident.reason,
           fired: incident.fired ?? null,
           lastRow: incident.lastRow
