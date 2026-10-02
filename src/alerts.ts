@@ -316,7 +316,8 @@ class AlertsRuntime implements Alerts {
     const until =
       duration === undefined ? FOREVER : this.#now() + toMs(duration);
     this.#sql.exec(
-      `UPDATE ${ALERTS} SET paused_until = ? WHERE name = ?`,
+      `UPDATE ${ALERTS} SET paused_until = ?, next_run_at = ? WHERE name = ?`,
+      until,
       until,
       name
     );
@@ -328,7 +329,7 @@ class AlertsRuntime implements Alerts {
     this.#entry(name);
     this.#sql.exec(
       `UPDATE ${ALERTS} SET paused_until = NULL, failed = 0, last_error = NULL,
-         next_run_at = min(next_run_at, ?)
+         next_run_at = ?
        WHERE name = ?`,
       this.#now(),
       name
@@ -525,7 +526,7 @@ class AlertsRuntime implements Alerts {
   ): void {
     this.#sql.exec(
       `UPDATE ${ALERTS} SET last_checked_at = ?, last_error = ?,
-         next_run_at = coalesce(?, next_run_at)
+         next_run_at = max(coalesce(?, next_run_at), next_run_at)
        WHERE name = ?`,
       now,
       error,

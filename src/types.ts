@@ -285,8 +285,8 @@ export interface Alerts {
   check(name: string): Promise<CheckResult>;
   /** Resolve an incident by hand. Calls `onResolve` with reason `"manual"`. */
   resolve(incidentId: string): Promise<void>;
-  /** Stop checking an alert, for a while or until `resume`. */
+  /** Stop checking an alert and skip the paused period, until expiry or resume. */
   pause(name: string, duration?: Duration): Promise<void>;
-  /** Resume a paused or failed alert and schedule an immediate check. */
+  /** Resume from now without replaying the paused or failed period. */
   resume(name: string): Promise<void>;
 }

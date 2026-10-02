@@ -137,6 +137,8 @@ await this.alerts.pause("error-rate", "1h");
 await this.alerts.resume("error-rate");
 ```
 
+Pausing skips the paused period. A timed pause starts checking again at expiry; `resume()` starts from now. Neither replays the paused gap. A pending SQL retry still completes its original saved window before continuing from the new schedule.
+
 Resolved incidents are kept for 7 days (`retention` option).
 
 ### Testing
