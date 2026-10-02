@@ -1,0 +1,25 @@
+.changeset/user-owned-handler-retries.md
+  s_16f02d46d695f1::t_6bbb6b0ae45bc3 6-7
+README.md
+  s_16f02d46d695f1::t_c3f40fe4bc039b 115-118
+src/alerts.ts
+  s_16f02d46d695f1::t_18194117bc7b2d 33,66,174,204-208,313-314,389-399,435-452,774
+src/types.ts
+  s_16f02d46d695f1::t_77ded4271deddc 216-218,235,288
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "d80254e1346beb3ac21d355f282800253b7f08a1",
+  "prompts": {},
+  "sessions": {
+    "s_16f02d46d695f1": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a0fbec-50f0-76e0-b264-652a0b247a12",
+        "model": "unknown"
+      },
+      "human_author": "Thomas Ankcorn <tankcorn@cloudflare.com>"
+    }
+  }
+}
