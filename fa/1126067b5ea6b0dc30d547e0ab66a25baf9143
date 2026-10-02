@@ -1,0 +1,25 @@
+README.md
+  s_16f02d46d695f1::t_765277f2ac003f 10,55,60,94
+examples/oncall/cloudflare.config.ts
+  s_16f02d46d695f1::t_25791eaac2bed5 9
+examples/oncall/src/env.d.ts
+  s_16f02d46d695f1::t_7a4f72e82e9593 6
+examples/oncall/src/index.ts
+  s_16f02d46d695f1::t_3d600ee464ee7c 34
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "fa1126067b5ea6b0dc30d547e0ab66a25baf9143",
+  "prompts": {},
+  "sessions": {
+    "s_16f02d46d695f1": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a0fbec-50f0-76e0-b264-652a0b247a12",
+        "model": "unknown"
+      },
+      "human_author": "Thomas Ankcorn <tankcorn@cloudflare.com>"
+    }
+  }
+}
