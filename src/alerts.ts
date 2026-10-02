@@ -48,9 +48,6 @@ type IncidentRow = {
   fired: string | null;
   fire_delivery: DeliveryState;
   resolve_delivery: DeliveryState | null;
-  // Legacy retry columns are retained for databases created by 0.1.0.
-  attempts: number;
-  next_attempt_at: number | null;
   delivery_error: string | null;
 };
 
@@ -82,14 +79,10 @@ const SCHEMA = [
     fired TEXT,
     fire_delivery TEXT NOT NULL,
     resolve_delivery TEXT,
-    attempts INTEGER NOT NULL DEFAULT 0,
-    next_attempt_at INTEGER,
     delivery_error TEXT
   )`,
   `CREATE INDEX IF NOT EXISTS ${INCIDENTS}_by_alert
     ON ${INCIDENTS} (alert, status)`,
-  `CREATE INDEX IF NOT EXISTS ${INCIDENTS}_by_delivery
-    ON ${INCIDENTS} (next_attempt_at) WHERE next_attempt_at IS NOT NULL`,
   `CREATE TABLE IF NOT EXISTS ${PENDING} (
     alert TEXT NOT NULL,
     key TEXT NOT NULL,
@@ -369,9 +362,8 @@ class AlertsRuntime implements Alerts {
          resolved_at = coalesce(resolved_at, ?),
          reason = coalesce(reason, 'alert-removed'),
          fire_delivery = CASE WHEN fire_delivery = 'pending' THEN 'skipped' ELSE fire_delivery END,
-         resolve_delivery = CASE WHEN resolve_delivery = 'done' THEN 'done' ELSE 'skipped' END,
-         next_attempt_at = NULL
-       WHERE alert = ? AND (status != 'resolved' OR next_attempt_at IS NOT NULL)`,
+         resolve_delivery = CASE WHEN resolve_delivery = 'done' THEN 'done' ELSE 'skipped' END
+       WHERE alert = ? AND (status != 'resolved' OR fire_delivery = 'pending' OR resolve_delivery = 'pending')`,
       now,
       name
     );
@@ -562,16 +554,15 @@ class AlertsRuntime implements Alerts {
     this.#sql.exec(
       `INSERT INTO ${INCIDENTS}
          (id, alert, key, title, status, fired_at, row, last_row,
-          fire_delivery, attempts, next_attempt_at)
-       VALUES (?, ?, ?, ?, 'firing', ?, ?, ?, 'pending', 0, ?)`,
+          fire_delivery)
+       VALUES (?, ?, ?, ?, 'firing', ?, ?, ?, 'pending')`,
       id,
       spec.name,
       key,
       this.#title(spec, row, key),
       now,
       json,
-      json,
-      now
+      json
     );
     return id;
   }
@@ -587,22 +578,14 @@ class AlertsRuntime implements Alerts {
       current.fire_delivery === "failed" || current.fire_delivery === "skipped";
     const resolveDelivery: DeliveryState =
       handlers?.onResolve && !fireFailed ? "pending" : "skipped";
-    const nextAttemptAt =
-      current.fire_delivery === "pending"
-        ? current.next_attempt_at
-        : resolveDelivery === "pending"
-          ? now
-          : null;
     this.#sql.exec(
       `UPDATE ${INCIDENTS} SET
          status = 'resolved', resolved_at = ?, reason = ?, clear_since = NULL,
-         resolve_delivery = ?, next_attempt_at = ?,
-         attempts = CASE WHEN fire_delivery = 'pending' THEN attempts ELSE 0 END
+         resolve_delivery = ?
        WHERE id = ?`,
       now,
       reason,
       resolveDelivery,
-      nextAttemptAt,
       current.id
     );
   }
@@ -630,9 +613,8 @@ class AlertsRuntime implements Alerts {
     const due = this.#sql
       .exec<{ id: string }>(
         `SELECT id FROM ${INCIDENTS}
-         WHERE next_attempt_at IS NOT NULL AND next_attempt_at <= ?
-         ORDER BY next_attempt_at, fired_at`,
-        this.#now()
+         WHERE fire_delivery = 'pending' OR resolve_delivery = 'pending'
+         ORDER BY fired_at`
       )
       .toArray();
     for (const { id } of due) await this.#deliverIncident(id);
@@ -642,8 +624,7 @@ class AlertsRuntime implements Alerts {
     // At most two passes: onFire, then onResolve if it already resolved.
     for (let pass = 0; pass < 2; pass++) {
       const incident = this.#incident(id);
-      if (!incident || incident.next_attempt_at === null) return;
-      if (incident.next_attempt_at > this.#now()) return;
+      if (!incident) return;
 
       const kind =
         incident.fire_delivery === "pending"
@@ -651,29 +632,23 @@ class AlertsRuntime implements Alerts {
           : incident.resolve_delivery === "pending"
             ? "resolve"
             : undefined;
-      if (!kind) {
-        this.#sql.exec(
-          `UPDATE ${INCIDENTS} SET next_attempt_at = NULL WHERE id = ?`,
-          id
-        );
-        return;
-      }
+      if (!kind) return;
 
       const entry = this.#entries.get(incident.alert);
       if (!entry) {
         this.#sql.exec(
-          `UPDATE ${INCIDENTS} SET ${kind}_delivery = 'skipped', next_attempt_at = NULL WHERE id = ?`,
+          `UPDATE ${INCIDENTS} SET ${kind}_delivery = 'skipped' WHERE id = ?`,
           id
         );
         return;
       }
 
       const { handlers } = entry;
-      // Persist the attempt before invoking user code. A restart must not
-      // deliver the callback again, including retries stored by older versions.
+      // Persist the attempt before invoking user code so a restart cannot
+      // deliver the callback again.
       this.#sql.exec(
-        `UPDATE ${INCIDENTS} SET ${kind}_delivery = 'failed', attempts = 1,
-           delivery_error = ?, next_attempt_at = NULL,
+        `UPDATE ${INCIDENTS} SET ${kind}_delivery = 'failed',
+           delivery_error = ?,
            resolve_delivery = CASE
              WHEN ? = 'fire' AND resolve_delivery = 'pending' THEN 'skipped'
              ELSE resolve_delivery END
@@ -682,7 +657,6 @@ class AlertsRuntime implements Alerts {
         kind,
         id
       );
-      if (incident.attempts > 0) return;
       await this.#ctx.storage.sync();
 
       try {
@@ -691,20 +665,18 @@ class AlertsRuntime implements Alerts {
           const json = result === undefined ? null : JSON.stringify(result);
           this.#sql.exec(
             `UPDATE ${INCIDENTS} SET
-               fire_delivery = 'done', fired = ?, attempts = 0, delivery_error = NULL,
-               resolve_delivery = ?, next_attempt_at = ?
+               fire_delivery = 'done', fired = ?, delivery_error = NULL,
+               resolve_delivery = ?
              WHERE id = ?`,
             json,
             incident.resolve_delivery,
-            incident.resolve_delivery === "pending" ? this.#now() : null,
             id
           );
           continue;
         }
         await handlers.onResolve?.(this.#toResolved(incident));
         this.#sql.exec(
-          `UPDATE ${INCIDENTS} SET resolve_delivery = 'done', attempts = 0,
-             delivery_error = NULL, next_attempt_at = NULL
+          `UPDATE ${INCIDENTS} SET resolve_delivery = 'done', delivery_error = NULL
            WHERE id = ?`,
           id
         );
@@ -755,7 +727,8 @@ class AlertsRuntime implements Alerts {
     const cutoff = this.#now() - toMs(this.#options.retention, 7 * 86_400_000);
     this.#sql.exec(
       `DELETE FROM ${INCIDENTS}
-       WHERE status = 'resolved' AND resolved_at < ? AND next_attempt_at IS NULL`,
+       WHERE status = 'resolved' AND resolved_at < ?
+         AND fire_delivery != 'pending' AND coalesce(resolve_delivery, 'skipped') != 'pending'`,
       cutoff
     );
   }
@@ -768,10 +741,11 @@ class AlertsRuntime implements Alerts {
            SELECT max(next_run_at, coalesce(paused_until, 0)) AS at
              FROM ${ALERTS} WHERE coalesce(paused_until, 0) < ?
            UNION ALL
-           SELECT next_attempt_at AS at
-             FROM ${INCIDENTS} WHERE next_attempt_at IS NOT NULL
+           SELECT ? AS at FROM ${INCIDENTS}
+             WHERE fire_delivery = 'pending' OR resolve_delivery = 'pending'
          )`,
-        FOREVER
+        FOREVER,
+        this.#now()
       )
       .one().at;
     const storage = this.#ctx.storage;
