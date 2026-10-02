@@ -1,0 +1,25 @@
+.changeset/retry-query-windows.md
+  s_16f02d46d695f1::t_5599dfb0f9dcaa 1-5
+README.md
+  s_16f02d46d695f1::t_8f19e9ec82890c 117
+src/alerts.ts
+  s_16f02d46d695f1::t_a63f777d73a4b8 18-19,28-35,43-44,78-79,187-188,219,223-225,407-408,418-451,461-462,466-485,492-495,501-502,513-519,838
+src/types.ts
+  s_16f02d46d695f1::t_ece190efd8c8ab 218-219
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "00d093c022c6f9aa82f38c46f98baa7ccba3ef92",
+  "prompts": {},
+  "sessions": {
+    "s_16f02d46d695f1": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a0fbec-50f0-76e0-b264-652a0b247a12",
+        "model": "unknown"
+      },
+      "human_author": "Thomas Ankcorn <tankcorn@cloudflare.com>"
+    }
+  }
+}
