@@ -1,0 +1,25 @@
+.changeset/ordered-manual-checks.md
+  s_16f02d46d695f1::t_c446e5e15807a5 1-5
+README.md
+  s_16f02d46d695f1::t_6bf885f9c464d5 136,144-145
+src/alerts.ts
+  s_16f02d46d695f1::t_53eeb4129b5f81 299-309
+src/types.ts
+  s_16f02d46d695f1::t_38e5be41b33649 284-287
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "aef0beeea616b45a6dcb51d31f9daa0b2309e6e1",
+  "prompts": {},
+  "sessions": {
+    "s_16f02d46d695f1": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a0fbec-50f0-76e0-b264-652a0b247a12",
+        "model": "unknown"
+      },
+      "human_author": "Thomas Ankcorn <tankcorn@cloudflare.com>"
+    }
+  }
+}
