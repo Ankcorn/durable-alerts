@@ -116,6 +116,8 @@ Declarative conditions compare numbers, and numeric strings count as numbers, si
 
 If `groupBy`, `fireWhen`, or `resolveWhen` throws, that check is rolled back and the alert is marked `failed` with `lastError` in `status()`. It is excluded from future checks, including after restarts. Other alerts and pending callbacks continue running. After fixing the cause, call `resume(name)` to enable checks again. Query errors are recorded separately. Errors with `retryable === true` retry the saved SQL and parameters, including the original time window, with backoff from 10 seconds up to 5 minutes. Retry state survives restarts and appears as `retrying` in `status()`. The alert finishes that window before advancing; overdue scheduled windows then catch up in order. Other query errors keep the normal schedule.
 
+On a deploy, a pending query retry is discarded if its SQL, parameters, window, delay, or check interval changed. The updated query starts from now. Unchanged queries retain their saved retry window.
+
 ### Handler failures
 
 The incident is saved before `onFire` runs. Each callback is attempted once; retries and delivery guarantees are your responsibility. If a handler throws or the object restarts mid-call, it is not called again. Failures are reported through `onError` and recorded as `deliveryError` on the incident.

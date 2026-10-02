@@ -26,6 +26,7 @@ type Entry = { spec: AnySpec; handlers: AnyHandlers };
 type DeliveryState = "pending" | "done" | "failed" | "skipped";
 
 type QueryRun = {
+  definition: string;
   query: string;
   params: Record<string, SqlParameter>;
   checkedAt: number;
@@ -116,6 +117,17 @@ function message(error: unknown): string {
 
 function parse<T>(json: string | null): T | undefined {
   return json === null ? undefined : (JSON.parse(json) as T);
+}
+
+function queryDefinition(spec: AnySpec): string {
+  return JSON.stringify({
+    query: spec.query.text,
+    params: Object.entries(spec.query.params).sort(([a], [b]) =>
+      a.localeCompare(b)
+    ),
+    window: toMs(spec.window, toMs(spec.every)),
+    delay: toMs(spec.delay)
+  });
 }
 
 class AlertsRuntime implements Alerts {
@@ -355,8 +367,8 @@ class AlertsRuntime implements Alerts {
 
   #upsert(spec: AnySpec, now: number): void {
     const existing = this.#sql
-      .exec<{ every: string }>(
-        `SELECT every FROM ${ALERTS} WHERE name = ?`,
+      .exec<Pick<AlertRow, "every" | "query_run">>(
+        `SELECT every, query_run FROM ${ALERTS} WHERE name = ?`,
         spec.name
       )
       .toArray()[0];
@@ -367,9 +379,17 @@ class AlertsRuntime implements Alerts {
         spec.every,
         now
       );
-    } else if (existing.every !== spec.every) {
+    } else if (
+      existing.every !== spec.every ||
+      (existing.query_run !== null &&
+        parse<QueryRun>(existing.query_run)?.definition !==
+          queryDefinition(spec))
+    ) {
       this.#sql.exec(
-        `UPDATE ${ALERTS} SET every = ?, next_run_at = ? WHERE name = ?`,
+        `UPDATE ${ALERTS} SET every = ?,
+           next_run_at = max(?, coalesce(paused_until, 0)),
+           query_run = NULL, retry_at = NULL, last_error = NULL
+         WHERE name = ?`,
         spec.every,
         now,
         spec.name
@@ -426,6 +446,7 @@ class AlertsRuntime implements Alerts {
       const anchor = scheduledAt ?? now;
       const end = anchor - toMs(spec.delay);
       run = {
+        definition: queryDefinition(spec),
         query: spec.query.text,
         params: {
           ...spec.query.params,
