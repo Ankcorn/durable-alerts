@@ -1,0 +1,25 @@
+.changeset/skip-paused-windows.md
+  s_16f02d46d695f1::t_4674f11bfa4bea 1-5
+README.md
+  s_16f02d46d695f1::t_e7410b025f4c6d 140-141
+src/alerts.ts
+  s_16f02d46d695f1::t_b78e42332cbc31 319-320,332,529
+src/types.ts
+  s_16f02d46d695f1::t_9400d583b004a7 288,290
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "871c8ddfe950165901130adb1c2a747f04c4cbb0",
+  "prompts": {},
+  "sessions": {
+    "s_16f02d46d695f1": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a0fbec-50f0-76e0-b264-652a0b247a12",
+        "model": "unknown"
+      },
+      "human_author": "Thomas Ankcorn <tankcorn@cloudflare.com>"
+    }
+  }
+}
