@@ -213,7 +213,9 @@ export interface IncidentRecord {
 export interface AlertStatus {
   readonly name: string;
   readonly every: Duration;
-  readonly nextCheckAt: Date;
+  /** Evaluation failed; no further checks run until resume(). */
+  readonly failed: boolean;
+  readonly nextCheckAt: Date | undefined;
   readonly lastCheckedAt: Date | undefined;
   readonly lastError: string | undefined;
   readonly pausedUntil: Date | undefined;
@@ -230,7 +232,7 @@ export interface CheckResult {
 
 export interface AlertError {
   readonly alert: string;
-  readonly phase: "query" | "onFire" | "onResolve";
+  readonly phase: "query" | "evaluation" | "onFire" | "onResolve";
   readonly incidentId: string | undefined;
   readonly error: unknown;
 }
@@ -283,5 +285,6 @@ export interface Alerts {
   resolve(incidentId: string): Promise<void>;
   /** Stop checking an alert, for a while or until `resume`. */
   pause(name: string, duration?: Duration): Promise<void>;
+  /** Resume a paused or failed alert and schedule an immediate check. */
   resume(name: string): Promise<void>;
 }

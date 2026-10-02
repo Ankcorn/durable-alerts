@@ -112,6 +112,10 @@ When a key that has an open incident returns no row, it counts as recovered (`on
 
 Declarative conditions compare numbers, and numeric strings count as numbers, since ClickHouse returns 64-bit integers such as `count()` as strings.
 
+### Evaluation failures
+
+If `groupBy`, `fireWhen`, or `resolveWhen` throws, that check is rolled back and the alert is marked `failed` with `lastError` in `status()`. It is excluded from future checks, including after restarts. Other alerts and pending callbacks continue running. After fixing the cause, call `resume(name)` to enable checks again. Query errors are recorded separately and keep their normal schedule.
+
 ### Handler failures
 
 The incident is saved before `onFire` runs. Each callback is attempted once; retries and delivery guarantees are your responsibility. If a handler throws or the object restarts mid-call, it is not called again. Failures are reported through `onError` and recorded as `deliveryError` on the incident.

@@ -30,6 +30,7 @@ type AlertRow = {
   next_run_at: number;
   last_checked_at: number | null;
   last_error: string | null;
+  failed: number;
   paused_until: number | null;
 };
 
@@ -62,6 +63,7 @@ const SCHEMA = [
     next_run_at INTEGER NOT NULL,
     last_checked_at INTEGER,
     last_error TEXT,
+    failed INTEGER NOT NULL DEFAULT 0,
     paused_until INTEGER
   )`,
   `CREATE TABLE IF NOT EXISTS ${INCIDENTS} (
@@ -169,7 +171,7 @@ class AlertsRuntime implements Alerts {
         const due = this.#sql
           .exec<Pick<AlertRow, "name" | "next_run_at">>(
             `SELECT name, next_run_at FROM ${ALERTS}
-             WHERE next_run_at <= ? AND (paused_until IS NULL OR paused_until <= ?)`,
+             WHERE failed = 0 AND next_run_at <= ? AND (paused_until IS NULL OR paused_until <= ?)`,
             now,
             now
           )
@@ -199,7 +201,11 @@ class AlertsRuntime implements Alerts {
       .map((row) => ({
         name: row.name,
         every: row.every as Duration,
-        nextCheckAt: new Date(Math.max(row.next_run_at, row.paused_until ?? 0)),
+        failed: row.failed !== 0,
+        nextCheckAt:
+          row.failed !== 0
+            ? undefined
+            : new Date(Math.max(row.next_run_at, row.paused_until ?? 0)),
         lastCheckedAt:
           row.last_checked_at === null
             ? undefined
@@ -304,7 +310,8 @@ class AlertsRuntime implements Alerts {
     await this.ready;
     this.#entry(name);
     this.#sql.exec(
-      `UPDATE ${ALERTS} SET paused_until = NULL, next_run_at = min(next_run_at, ?)
+      `UPDATE ${ALERTS} SET paused_until = NULL, failed = 0, last_error = NULL,
+         next_run_at = min(next_run_at, ?)
        WHERE name = ?`,
       this.#now(),
       name
@@ -379,6 +386,17 @@ class AlertsRuntime implements Alerts {
    */
   async #evaluate(name: string, scheduledAt?: number): Promise<CheckResult> {
     const { spec } = this.#entry(name);
+    const stored = this.#sql
+      .exec<{ failed: number }>(
+        `SELECT failed FROM ${ALERTS} WHERE name = ?`,
+        name
+      )
+      .one();
+    if (stored.failed) {
+      throw new Error(
+        `Alert "${name}" has failed; call resume() before checking it again`
+      );
+    }
     const now = this.#now();
     const every = toMs(spec.every);
     const anchor =
@@ -414,10 +432,24 @@ class AlertsRuntime implements Alerts {
       return { fired: [], resolved: [] };
     }
 
-    return this.#ctx.storage.transactionSync(() => {
-      this.#recordCheck(name, now, nextRunAt, null);
-      return this.#apply(spec, rows, now);
-    });
+    try {
+      return this.#ctx.storage.transactionSync(() => {
+        this.#recordCheck(name, now, nextRunAt, null);
+        return this.#apply(spec, rows, now);
+      });
+    } catch (error) {
+      // Evaluation rolled back. Persist the failure outside that transaction
+      // and disable this alert without interrupting the rest of the alarm.
+      this.#sql.exec(
+        `UPDATE ${ALERTS} SET failed = 1, last_checked_at = ?, last_error = ?
+         WHERE name = ?`,
+        now,
+        message(error),
+        name
+      );
+      this.#report({ alert: name, phase: "evaluation", error });
+      return { fired: [], resolved: [] };
+    }
   }
 
   #recordCheck(
@@ -739,7 +771,7 @@ class AlertsRuntime implements Alerts {
       .exec<{ at: number | null }>(
         `SELECT min(at) AS at FROM (
            SELECT max(next_run_at, coalesce(paused_until, 0)) AS at
-             FROM ${ALERTS} WHERE coalesce(paused_until, 0) < ?
+             FROM ${ALERTS} WHERE failed = 0 AND coalesce(paused_until, 0) < ?
            UNION ALL
            SELECT ? AS at FROM ${INCIDENTS}
              WHERE fire_delivery = 'pending' OR resolve_delivery = 'pending'
