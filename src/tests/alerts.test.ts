@@ -41,7 +41,9 @@ describe("alerts", () => {
     expect(calls.filter((c) => c.alert === "errors")).toHaveLength(1);
     const [fired] = calls;
     expect(fired).toMatchObject({ kind: "fire", key: "" });
-    expect(fired?.id).toBe(`errors/${BASE}`);
+    expect(fired?.id).toMatch(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/
+    );
 
     await stub.setRows("errors", [{ errors: 3 }]);
     await tick(stub);
@@ -50,7 +52,7 @@ describe("alerts", () => {
       kind: "resolve",
       id: fired?.id,
       reason: "recovered",
-      fired: { pageId: `page:errors/${BASE}` },
+      fired: { pageId: `page:${fired?.id}` },
       lastRow: { errors: 3 }
     });
     expect(await stub.incidents("open")).toEqual([]);

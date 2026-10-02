@@ -581,7 +581,7 @@ class AlertsRuntime implements Alerts {
   }
 
   #fire(spec: AnySpec, key: string, row: Row, now: number): string {
-    const id = key ? `${spec.name}/${key}/${now}` : `${spec.name}/${now}`;
+    const id = crypto.randomUUID();
     const json = JSON.stringify(row);
     this.#sql.exec(
       `INSERT INTO ${INCIDENTS}
