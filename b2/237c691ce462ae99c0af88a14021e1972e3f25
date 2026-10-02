@@ -1,0 +1,19 @@
+src/alerts.ts
+  s_16f02d46d695f1::t_aeb43fe4f7f563 365-366,557-558,565,584,616-617,627,635,640,647-648,650-651,668-669,679,730-731,744-745,747-748
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "b2237c691ce462ae99c0af88a14021e1972e3f25",
+  "prompts": {},
+  "sessions": {
+    "s_16f02d46d695f1": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a0fbec-50f0-76e0-b264-652a0b247a12",
+        "model": "unknown"
+      },
+      "human_author": "Thomas Ankcorn <tankcorn@cloudflare.com>"
+    }
+  }
+}
