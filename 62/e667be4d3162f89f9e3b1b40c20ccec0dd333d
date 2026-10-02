@@ -1,0 +1,21 @@
+CHANGELOG.md
+  s_16f02d46d695f1::t_5df168526b95a6 3-18
+package.json
+  s_16f02d46d695f1::t_854fe2279645e8 3
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "62e667be4d3162f89f9e3b1b40c20ccec0dd333d",
+  "prompts": {},
+  "sessions": {
+    "s_16f02d46d695f1": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a0fbec-50f0-76e0-b264-652a0b247a12",
+        "model": "unknown"
+      },
+      "human_author": "Thomas Ankcorn <tankcorn@cloudflare.com>"
+    }
+  }
+}
