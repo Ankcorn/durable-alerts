@@ -6,7 +6,7 @@ export default defineConfig({
     entrypoint: "./src/index.ts",
     compatibilityDate: "2026-09-22",
     env: {
-      ANALYTICS_SQL: { type: "analytics", dev: { remote: true } },
+      ANALYTICS: { type: "analytics", dev: { remote: true } },
       ONCALL: bindings.durableObject({
         worker: "durable-alerts-oncall",
         exportName: "Oncall"

@@ -7,7 +7,7 @@ import { DurableObject } from "cloudflare:workers";
 import { alerts, sql } from "durable-alerts";
 
 export class Oncall extends DurableObject<Env> {
-  alerts = alerts(this.ctx, { sql: this.env.ANALYTICS_SQL }).watch({
+  alerts = alerts(this.ctx, { sql: this.env.ANALYTICS }).watch({
     name: "high-error-volume",
     query: sql<{ errors: number }>`
       SELECT count() AS errors FROM logs.workersLogs
@@ -52,12 +52,12 @@ import { DurableObject } from "cloudflare:workers";
 import { alerts, sql } from "durable-alerts";
 
 interface Env {
-  ANALYTICS_SQL: AnalyticsSQLBinding;
+  ANALYTICS: AnalyticsSQLBinding;
   ONCALL: DurableObjectNamespace<Oncall>;
 }
 
 export class Oncall extends DurableObject<Env> {
-  alerts = alerts(this.ctx, { sql: this.env.ANALYTICS_SQL }).watch({
+  alerts = alerts(this.ctx, { sql: this.env.ANALYTICS }).watch({
     name: "error-rate",
     query: sql<{ scriptName: string; rate: number }>`
       SELECT scriptName, countIf(httpStatus >= 500) / count() AS rate
@@ -91,7 +91,7 @@ export default {
 } satisfies ExportedHandler<Env>;
 ```
 
-Configure `ANALYTICS_SQL` as an Analytics binding and `ONCALL` as a SQLite Durable Object binding to the exported `Oncall` class. The [oncall example](examples/oncall/cloudflare.config.ts) contains the complete configuration. Call the Worker once after deploying to start its alarm scheduler.
+Configure `ANALYTICS` as an Analytics binding and `ONCALL` as a SQLite Durable Object binding to the exported `Oncall` class. The [oncall example](examples/oncall/cloudflare.config.ts) contains the complete configuration. Call the Worker once after deploying to start its alarm scheduler.
 
 When a key that has an open incident returns no row, it counts as recovered (`onNoData: "resolve"`, the default). That suits queries like `WHERE httpStatus >= 500 GROUP BY scriptName`, where a healthy script returns no row. Set `onNoData: "keep"` to leave such incidents open.
 

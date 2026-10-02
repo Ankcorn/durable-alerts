@@ -31,7 +31,7 @@ const errorRate = defineAlert({
 });
 
 export class Oncall extends DurableObject<Cloudflare.Env> {
-  alerts = alerts(this.ctx, { sql: this.env.ANALYTICS_SQL })
+  alerts = alerts(this.ctx, { sql: this.env.ANALYTICS })
     .watch({
       name: "demo-script-errors",
       // Replace this query's script name with a Worker in your account.
