@@ -112,11 +112,11 @@ When a key that has an open incident returns no row, it counts as recovered (`on
 
 Declarative conditions compare numbers, and numeric strings count as numbers, since ClickHouse returns 64-bit integers such as `count()` as strings.
 
-### Handlers run at least once
+### Handler failures
 
-The incident is saved before `onFire` runs. If a handler throws, or the object restarts mid-call, it is retried with exponential backoff (5 attempts from `10s` by default; set `retry: { attempts, backoff }`). Dedupe side effects on `incident.id`, which stays the same for the life of the incident.
+The incident is saved before `onFire` runs. Each callback is attempted once; retries and delivery guarantees are your responsibility. If a handler throws or the object restarts mid-call, it is not called again. Failures are reported through `onError` and recorded as `deliveryError` on the incident.
 
-`onResolve` always runs after `onFire` has succeeded. If `onFire` runs out of attempts, `onResolve` is skipped, since nothing was opened.
+`onResolve` runs only after `onFire` succeeds, with its saved return value. If `onFire` fails or is interrupted, `onResolve` is skipped.
 
 Handlers run inside the alarm, so hand long work to a [Workflow](https://developers.cloudflare.com/workflows/) or another Durable Object, using `incident.id` as the instance id.
 

@@ -98,31 +98,30 @@ export class TestAlerts extends DurableObject {
       every: "1m",
       window: "5m",
       fireWhen: { errors: { above: 50 } },
-      onFire: async (incident, delivery) => {
+      onFire: async (incident) => {
         this.#maybeFail("fire");
         this.log.push({
           kind: "fire",
           alert: incident.alert,
           id: incident.id,
           key: incident.key,
-          attempt: delivery.attempt
+          attempt: 1
         });
         return { pageId: `page:${incident.id}` };
       },
-      onResolve: async (incident, delivery) => {
+      onResolve: async (incident) => {
         this.#maybeFail("resolve");
         this.log.push({
           kind: "resolve",
           alert: incident.alert,
           id: incident.id,
           key: incident.key,
-          attempt: delivery.attempt,
+          attempt: 1,
           reason: incident.reason,
           fired: incident.fired ?? null,
           lastRow: incident.lastRow
         });
-      },
-      retry: { attempts: 3, backoff: "10s" }
+      }
     });
   }
 

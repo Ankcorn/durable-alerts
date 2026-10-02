@@ -151,50 +151,23 @@ describe("alerts", () => {
     expect((await stub.incidents("open"))[0]?.status).toBe("firing");
   });
 
-  it("retries a failing onFire with backoff", async () => {
+  it("does not retry a failed onFire and skips onResolve", async () => {
     const stub = object();
     await stub.setRows("errors", [{ errors: 90 }]);
     await stub.failNext("fire", 1);
     await tick(stub, 0);
+    expect((await stub.incidents("open"))[0]?.deliveryError).toBe(
+      "fire failed"
+    );
+    expect(await stub.alarmAt()).toBe(BASE + MINUTE);
+    await tick(stub);
     expect(await stub.calls()).toEqual([]);
-    const [incident] = await stub.incidents("open");
-    expect(incident?.deliveryError).toBe("fire failed");
-    expect(await stub.alarmAt()).toBe(BASE + 10_000);
-
-    await tick(stub, 10_000);
-    const calls = await stub.calls();
-    expect(calls).toHaveLength(1);
-    expect(calls[0]?.attempt).toBe(2);
-    expect((await stub.incidents("open"))[0]?.deliveryError).toBeUndefined();
-  });
-
-  it("gives up after the configured attempts and skips onResolve", async () => {
-    const stub = object();
-    await stub.setRows("errors", [{ errors: 90 }]);
-    await stub.failNext("fire", 10);
-    await tick(stub, 0);
-    await tick(stub, 10_000);
-    await tick(stub, 20_000);
     await stub.setRows("errors", [{ errors: 0 }]);
-    await tick(stub, MINUTE);
+    await tick(stub);
     expect(await stub.calls()).toEqual([]);
-    const [incident] = await stub.incidents("resolved");
-    expect(incident?.deliveryError).toBe("fire failed");
-  });
-
-  it("delivers onFire before onResolve when an incident resolves during a retry", async () => {
-    const stub = object();
-    await stub.setRows("errors", [{ errors: 90 }]);
-    await stub.failNext("fire", 1);
-    await tick(stub, 0);
-    await stub.setRows("errors", [{ errors: 0 }]);
-    await stub.check("errors");
-    expect(await stub.calls()).toEqual([]);
-
-    await tick(stub, 10_000);
-    const calls = await stub.calls();
-    expect(calls.map((c) => c.kind)).toEqual(["fire", "resolve"]);
-    expect(calls[1]?.fired).toEqual({ pageId: `page:errors/${BASE}` });
+    expect((await stub.incidents("resolved"))[0]?.deliveryError).toBe(
+      "fire failed"
+    );
   });
 
   it("resolves by hand", async () => {
@@ -225,23 +198,18 @@ describe("alerts", () => {
     expect(await stub.alarmAt()).toBe(BASE + MINUTE);
   });
 
-  it("redelivers a pending retry after the object restarts", async () => {
+  it("does not redeliver a failed callback after a restart", async () => {
     const stub = object();
     await stub.setRows("errors", [{ errors: 90 }]);
     await stub.failNext("fire", 1);
     await tick(stub, 0);
     await evictDurableObject(stub);
-
-    // A fresh instance has no memory of the failure, only storage.
     await stub.setRows("errors", [{ errors: 90 }]);
-    await tick(stub, 10_000);
-    const calls = await stub.calls();
-    expect(calls).toHaveLength(1);
-    expect(calls[0]).toMatchObject({
-      kind: "fire",
-      attempt: 2,
-      id: `errors/${BASE}`
-    });
+    await tick(stub);
+    expect(await stub.calls()).toEqual([]);
+    expect((await stub.incidents("open"))[0]?.deliveryError).toBe(
+      "fire failed"
+    );
   });
 
   it("removes alerts that are no longer declared", async () => {

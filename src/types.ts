@@ -169,25 +169,9 @@ export interface ResolvedIncident<
   readonly fired: F;
 }
 
-/** Information about a handler call. */
-export interface Delivery {
-  /** Starts at 1 and increases on each retry. */
-  readonly attempt: number;
-}
-
-export interface RetryPolicy {
-  /** Total attempts, including the first. Defaults to 5. */
-  readonly attempts?: number;
-  /** Delay before the first retry; doubles each time. Defaults to `"10s"`. */
-  readonly backoff?: Duration;
-}
-
 /**
- * What to do when an incident fires and resolves.
- *
- * Handlers are delivered at least once: if one throws, or the Durable
- * Object restarts mid-call, it runs again. Dedupe side effects on
- * `incident.id`.
+ * Callbacks are attempted once. Users own retries and delivery guarantees.
+ * A restart during a callback does not cause it to be delivered again.
  */
 export interface IncidentHandlers<
   R extends Row,
@@ -195,13 +179,9 @@ export interface IncidentHandlers<
   F extends Json
 > {
   /** Runs once when the incident opens. The return value is persisted. */
-  onFire(incident: Incident<R, K>, delivery: Delivery): F | Promise<F>;
+  onFire(incident: Incident<R, K>): F | Promise<F>;
   /** Runs once when it resolves, with `incident.fired` set to `onFire`'s result. */
-  onResolve?(
-    incident: ResolvedIncident<R, K, F>,
-    delivery: Delivery
-  ): void | Promise<void>;
-  readonly retry?: RetryPolicy;
+  onResolve?(incident: ResolvedIncident<R, K, F>): void | Promise<void>;
 }
 
 /** The incident type for a definition: `IncidentOf<typeof errorRate>`. */
@@ -226,7 +206,7 @@ export interface IncidentRecord {
   readonly reason: ResolveReason | "alert-removed" | undefined;
   readonly row: Row;
   readonly lastRow: Row | undefined;
-  /** Set when a handler has failed and is being retried or has given up. */
+  /** Set when a handler failed or its attempt did not complete. */
   readonly deliveryError: string | undefined;
 }
 

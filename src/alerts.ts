@@ -99,8 +99,6 @@ const SCHEMA = [
 
 /** `paused_until` value meaning "until resumed". */
 const FOREVER = 8_640_000_000_000_000;
-const DEFAULT_ATTEMPTS = 5;
-const DEFAULT_BACKOFF_MS = 10_000;
 const DEFAULT_LIMIT = 100;
 
 function message(error: unknown): string {
@@ -671,37 +669,39 @@ class AlertsRuntime implements Alerts {
       }
 
       const { handlers } = entry;
-      const attempt = incident.attempts + 1;
-      const maxAttempts = handlers.retry?.attempts ?? DEFAULT_ATTEMPTS;
-      const backoff =
-        toMs(handlers.retry?.backoff, DEFAULT_BACKOFF_MS) * 2 ** (attempt - 1);
-      // Count the attempt before running it, so a handler that crashes the
-      // object cannot retry forever.
+      // Persist the attempt before invoking user code. A restart must not
+      // deliver the callback again, including retries stored by older versions.
       this.#sql.exec(
-        `UPDATE ${INCIDENTS} SET attempts = ?, next_attempt_at = ? WHERE id = ?`,
-        attempt,
-        now + backoff,
+        `UPDATE ${INCIDENTS} SET ${kind}_delivery = 'failed', attempts = 1,
+           delivery_error = ?, next_attempt_at = NULL,
+           resolve_delivery = CASE
+             WHEN ? = 'fire' AND resolve_delivery = 'pending' THEN 'skipped'
+             ELSE resolve_delivery END
+         WHERE id = ?`,
+        `${kind === "fire" ? "onFire" : "onResolve"} did not complete`,
+        kind,
         id
       );
+      if (incident.attempts > 0) return;
+      await this.#ctx.storage.sync();
 
       try {
         if (kind === "fire") {
-          const result = await handlers.onFire(this.#toIncident(incident), {
-            attempt
-          });
+          const result = await handlers.onFire(this.#toIncident(incident));
           const json = result === undefined ? null : JSON.stringify(result);
           this.#sql.exec(
             `UPDATE ${INCIDENTS} SET
                fire_delivery = 'done', fired = ?, attempts = 0, delivery_error = NULL,
-               next_attempt_at = CASE WHEN resolve_delivery = 'pending' THEN ? ELSE NULL END
+               resolve_delivery = ?, next_attempt_at = ?
              WHERE id = ?`,
             json,
-            this.#now(),
+            incident.resolve_delivery,
+            incident.resolve_delivery === "pending" ? this.#now() : null,
             id
           );
           continue;
         }
-        await handlers.onResolve?.(this.#toResolved(incident), { attempt });
+        await handlers.onResolve?.(this.#toResolved(incident));
         this.#sql.exec(
           `UPDATE ${INCIDENTS} SET resolve_delivery = 'done', attempts = 0,
              delivery_error = NULL, next_attempt_at = NULL
@@ -716,15 +716,6 @@ class AlertsRuntime implements Alerts {
           incidentId: id,
           error
         });
-        if (attempt < maxAttempts) {
-          this.#sql.exec(
-            `UPDATE ${INCIDENTS} SET delivery_error = ? WHERE id = ?`,
-            message(error),
-            id
-          );
-          return;
-        }
-        // Out of attempts. If onFire never succeeded there is nothing to close.
         this.#sql.exec(
           `UPDATE ${INCIDENTS} SET
              ${kind}_delivery = 'failed', delivery_error = ?, next_attempt_at = NULL,
@@ -775,7 +766,7 @@ class AlertsRuntime implements Alerts {
     );
   }
 
-  /** Point the Durable Object alarm at the next check or retry. */
+  /** Point the Durable Object alarm at the next check or pending delivery. */
   async #schedule(): Promise<void> {
     const next = this.#sql
       .exec<{ at: number | null }>(
