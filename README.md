@@ -48,29 +48,50 @@ Each check runs the query with `$start` and `$end` set to the window, anchored t
 `groupBy` opens one incident per key from a single query, so several can be open at once:
 
 ```ts
-import { defineAlert, sql } from "durable-alerts";
+import { DurableObject } from "cloudflare:workers";
+import { alerts, sql } from "durable-alerts";
 
-export const errorRate = defineAlert({
-  name: "error-rate",
-  query: sql<{ scriptName: string; rate: number }>`
-    SELECT scriptName, countIf(httpStatus >= 500) / count() AS rate
-    FROM logs.workersLogs WHERE ${sql.window}
-    GROUP BY scriptName HAVING count() >= 20`,
-  every: "1m",
-  window: "5m",
-  groupBy: (row) => row.scriptName,
-  fireWhen: { rate: { above: 0.05 } }, // open above 5%
-  resolveWhen: { rate: { below: 0.01 } }, // close below 1%
-  fireAfter: "2m", // ignore blips
-  resolveAfter: "5m" // don't flap
-});
+interface Env {
+  ANALYTICS_SQL: AnalyticsSQLBinding;
+  ONCALL: DurableObjectNamespace<Oncall>;
+}
 
-// in the Durable Object
-alerts(this.ctx, { sql: this.env.ANALYTICS_SQL }).watch(errorRate, {
-  onFire: (incident) => notify(`${incident.key} is failing`),
-  onResolve: (incident) => notify(`${incident.key} recovered`)
-});
+export class Oncall extends DurableObject<Env> {
+  alerts = alerts(this.ctx, { sql: this.env.ANALYTICS_SQL }).watch({
+    name: "error-rate",
+    query: sql<{ scriptName: string; rate: number }>`
+      SELECT scriptName, countIf(httpStatus >= 500) / count() AS rate
+      FROM logs.workersLogs WHERE ${sql.window}
+      GROUP BY scriptName HAVING count() >= 20`,
+    every: "1m",
+    window: "5m",
+    groupBy: (row) => row.scriptName,
+    fireWhen: { rate: { above: 0.05 } }, // open above 5%
+    resolveWhen: { rate: { below: 0.01 } }, // close below 1%
+    fireAfter: "2m", // ignore blips
+    resolveAfter: "5m", // don't flap
+    onFire: (incident) => console.log(`${incident.key} is failing`),
+    onResolve: (incident) => console.log(`${incident.key} recovered`)
+  });
+
+  alarm(info?: AlarmInvocationInfo) {
+    return this.alerts.alarm(info);
+  }
+
+  async ensure() {
+    await this.alerts.ready;
+  }
+}
+
+export default {
+  async fetch(_request, env) {
+    await env.ONCALL.getByName("oncall").ensure();
+    return new Response("Alert scheduler ready");
+  }
+} satisfies ExportedHandler<Env>;
 ```
+
+Configure `ANALYTICS_SQL` as an Analytics binding and `ONCALL` as a SQLite Durable Object binding to the exported `Oncall` class. The [oncall example](examples/oncall/cloudflare.config.ts) contains the complete configuration. Call the Worker once after deploying to start its alarm scheduler.
 
 When a key that has an open incident returns no row, it counts as recovered (`onNoData: "resolve"`, the default). That suits queries like `WHERE httpStatus >= 500 GROUP BY scriptName`, where a healthy script returns no row. Set `onNoData: "keep"` to leave such incidents open.
 
