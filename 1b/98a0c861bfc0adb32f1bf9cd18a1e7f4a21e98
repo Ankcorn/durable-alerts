@@ -1,0 +1,23 @@
+.changeset/discard-stale-query-retries.md
+  s_16f02d46d695f1::t_5d42274d793902 1-5
+README.md
+  s_16f02d46d695f1::t_e990e3ba0c5b95 119-120
+src/alerts.ts
+  s_16f02d46d695f1::t_6ea71eadea4689 29,122-132,370-371,382-387,389-392,449
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "1b98a0c861bfc0adb32f1bf9cd18a1e7f4a21e98",
+  "prompts": {},
+  "sessions": {
+    "s_16f02d46d695f1": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a0fbec-50f0-76e0-b264-652a0b247a12",
+        "model": "unknown"
+      },
+      "human_author": "Thomas Ankcorn <tankcorn@cloudflare.com>"
+    }
+  }
+}
