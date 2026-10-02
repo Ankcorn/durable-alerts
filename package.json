@@ -1,6 +1,6 @@
 {
   "name": "durable-alerts",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Threshold alerts over Analytics SQL that live inside any Cloudflare Durable Object",
   "keywords": [
     "alerting",
