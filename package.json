@@ -1,6 +1,6 @@
 {
   "name": "durable-alerts",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "Threshold alerts over Analytics SQL that live inside any Cloudflare Durable Object",
   "keywords": [
     "alerting",
@@ -13,6 +13,14 @@
   ],
   "license": "MIT",
   "author": "Thomas Ankcorn",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Ankcorn/durable-alerts.git"
+  },
+  "homepage": "https://github.com/Ankcorn/durable-alerts#readme",
+  "bugs": {
+    "url": "https://github.com/Ankcorn/durable-alerts/issues"
+  },
   "files": [
     "dist",
     "README.md",
