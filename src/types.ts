@@ -215,6 +215,8 @@ export interface AlertStatus {
   readonly every: Duration;
   /** Evaluation failed; no further checks run until resume(). */
   readonly failed: boolean;
+  /** A saved query is waiting to complete with its original time window. */
+  readonly retrying: boolean;
   readonly nextCheckAt: Date | undefined;
   readonly lastCheckedAt: Date | undefined;
   readonly lastError: string | undefined;

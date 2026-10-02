@@ -114,7 +114,7 @@ Declarative conditions compare numbers, and numeric strings count as numbers, si
 
 ### Evaluation failures
 
-If `groupBy`, `fireWhen`, or `resolveWhen` throws, that check is rolled back and the alert is marked `failed` with `lastError` in `status()`. It is excluded from future checks, including after restarts. Other alerts and pending callbacks continue running. After fixing the cause, call `resume(name)` to enable checks again. Query errors are recorded separately and keep their normal schedule.
+If `groupBy`, `fireWhen`, or `resolveWhen` throws, that check is rolled back and the alert is marked `failed` with `lastError` in `status()`. It is excluded from future checks, including after restarts. Other alerts and pending callbacks continue running. After fixing the cause, call `resume(name)` to enable checks again. Query errors are recorded separately. Errors with `retryable === true` retry the saved SQL and parameters, including the original time window, with backoff from 10 seconds up to 5 minutes. Retry state survives restarts and appears as `retrying` in `status()`. The alert finishes that window before advancing; overdue scheduled windows then catch up in order. Other query errors keep the normal schedule.
 
 ### Handler failures
 

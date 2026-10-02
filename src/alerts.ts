@@ -15,7 +15,8 @@ import type {
   Json,
   ResolvedIncident,
   ResolveReason,
-  Row
+  Row,
+  SqlParameter
 } from "./types";
 
 type AnySpec = AlertSpec<Row, string>;
@@ -24,6 +25,14 @@ type Entry = { spec: AnySpec; handlers: AnyHandlers };
 
 type DeliveryState = "pending" | "done" | "failed" | "skipped";
 
+type QueryRun = {
+  query: string;
+  params: Record<string, SqlParameter>;
+  checkedAt: number;
+  nextRunAt?: number;
+  attempts: number;
+};
+
 type AlertRow = {
   name: string;
   every: string;
@@ -31,6 +40,8 @@ type AlertRow = {
   last_checked_at: number | null;
   last_error: string | null;
   failed: number;
+  query_run: string | null;
+  retry_at: number | null;
   paused_until: number | null;
 };
 
@@ -64,6 +75,8 @@ const SCHEMA = [
     last_checked_at INTEGER,
     last_error TEXT,
     failed INTEGER NOT NULL DEFAULT 0,
+    query_run TEXT,
+    retry_at INTEGER,
     paused_until INTEGER
   )`,
   `CREATE TABLE IF NOT EXISTS ${INCIDENTS} (
@@ -171,7 +184,8 @@ class AlertsRuntime implements Alerts {
         const due = this.#sql
           .exec<Pick<AlertRow, "name" | "next_run_at">>(
             `SELECT name, next_run_at FROM ${ALERTS}
-             WHERE failed = 0 AND next_run_at <= ? AND (paused_until IS NULL OR paused_until <= ?)`,
+             WHERE failed = 0 AND coalesce(retry_at, next_run_at) <= ?
+               AND (paused_until IS NULL OR paused_until <= ?)`,
             now,
             now
           )
@@ -202,10 +216,13 @@ class AlertsRuntime implements Alerts {
         name: row.name,
         every: row.every as Duration,
         failed: row.failed !== 0,
+        retrying: row.query_run !== null,
         nextCheckAt:
           row.failed !== 0
             ? undefined
-            : new Date(Math.max(row.next_run_at, row.paused_until ?? 0)),
+            : new Date(
+                Math.max(row.retry_at ?? row.next_run_at, row.paused_until ?? 0)
+              ),
         lastCheckedAt:
           row.last_checked_at === null
             ? undefined
@@ -387,8 +404,8 @@ class AlertsRuntime implements Alerts {
   async #evaluate(name: string, scheduledAt?: number): Promise<CheckResult> {
     const { spec } = this.#entry(name);
     const stored = this.#sql
-      .exec<{ failed: number }>(
-        `SELECT failed FROM ${ALERTS} WHERE name = ?`,
+      .exec<Pick<AlertRow, "failed" | "query_run" | "retry_at">>(
+        `SELECT failed, query_run, retry_at FROM ${ALERTS} WHERE name = ?`,
         name
       )
       .one();
@@ -398,17 +415,40 @@ class AlertsRuntime implements Alerts {
       );
     }
     const now = this.#now();
-    const every = toMs(spec.every);
-    const anchor =
-      scheduledAt !== undefined && now - scheduledAt < every
-        ? scheduledAt
-        : now;
-    const end = anchor - toMs(spec.delay);
-    const start = end - toMs(spec.window, every);
-    const nextRunAt =
-      scheduledAt === undefined
-        ? undefined
-        : Math.max(anchor + every, now + 1_000);
+    // A pending run owns this alert until its original window succeeds.
+    if (stored.retry_at !== null && stored.retry_at > now) {
+      return { fired: [], resolved: [] };
+    }
+    let run = parse<QueryRun>(stored.query_run);
+    if (!run) {
+      const every = toMs(spec.every);
+      const anchor = scheduledAt ?? now;
+      const end = anchor - toMs(spec.delay);
+      run = {
+        query: spec.query.text,
+        params: {
+          ...spec.query.params,
+          start: new Date(end - toMs(spec.window, every)).toISOString(),
+          end: new Date(end).toISOString()
+        },
+        checkedAt: anchor,
+        nextRunAt: scheduledAt === undefined ? undefined : anchor + every,
+        attempts: 0
+      };
+    }
+    run.attempts++;
+    const retryDelay = Math.min(
+      10_000 * 2 ** Math.min(run.attempts - 1, 5),
+      300_000
+    );
+    // Save before issuing the query so an interrupted call retains its window.
+    this.#sql.exec(
+      `UPDATE ${ALERTS} SET query_run = ?, retry_at = ? WHERE name = ?`,
+      JSON.stringify(run),
+      now + retryDelay,
+      name
+    );
+    await this.#ctx.storage.sync();
 
     let rows: Row[];
     try {
@@ -418,30 +458,48 @@ class AlertsRuntime implements Alerts {
         );
       }
       const result = await this.#options.sql.query<Row>({
-        query: spec.query.text,
-        params: {
-          ...spec.query.params,
-          start: new Date(start).toISOString(),
-          end: new Date(end).toISOString()
-        }
+        query: run.query,
+        params: run.params
       });
       rows = result.data;
     } catch (error) {
-      this.#recordCheck(name, now, nextRunAt, message(error));
+      const retryable =
+        typeof error === "object" &&
+        error !== null &&
+        "retryable" in error &&
+        error.retryable === true;
+      this.#ctx.storage.transactionSync(() => {
+        this.#recordCheck(
+          name,
+          now,
+          retryable ? undefined : run.nextRunAt,
+          message(error)
+        );
+        if (retryable) {
+          this.#sql.exec(
+            `UPDATE ${ALERTS} SET retry_at = ? WHERE name = ?`,
+            this.#now() + retryDelay,
+            name
+          );
+        } else this.#clearQuery(name);
+      });
       this.#report({ alert: name, phase: "query", error });
       return { fired: [], resolved: [] };
     }
 
     try {
       return this.#ctx.storage.transactionSync(() => {
-        this.#recordCheck(name, now, nextRunAt, null);
-        return this.#apply(spec, rows, now);
+        this.#recordCheck(name, now, run.nextRunAt, null);
+        const result = this.#apply(spec, rows, run.checkedAt);
+        this.#clearQuery(name);
+        return result;
       });
     } catch (error) {
       // Evaluation rolled back. Persist the failure outside that transaction
       // and disable this alert without interrupting the rest of the alarm.
       this.#sql.exec(
-        `UPDATE ${ALERTS} SET failed = 1, last_checked_at = ?, last_error = ?
+        `UPDATE ${ALERTS} SET failed = 1, last_checked_at = ?, last_error = ?,
+           query_run = NULL, retry_at = NULL
          WHERE name = ?`,
         now,
         message(error),
@@ -450,6 +508,13 @@ class AlertsRuntime implements Alerts {
       this.#report({ alert: name, phase: "evaluation", error });
       return { fired: [], resolved: [] };
     }
+  }
+
+  #clearQuery(name: string): void {
+    this.#sql.exec(
+      `UPDATE ${ALERTS} SET query_run = NULL, retry_at = NULL WHERE name = ?`,
+      name
+    );
   }
 
   #recordCheck(
@@ -770,7 +835,7 @@ class AlertsRuntime implements Alerts {
     const next = this.#sql
       .exec<{ at: number | null }>(
         `SELECT min(at) AS at FROM (
-           SELECT max(next_run_at, coalesce(paused_until, 0)) AS at
+           SELECT max(coalesce(retry_at, next_run_at), coalesce(paused_until, 0)) AS at
              FROM ${ALERTS} WHERE failed = 0 AND coalesce(paused_until, 0) < ?
            UNION ALL
            SELECT ? AS at FROM ${INCIDENTS}
