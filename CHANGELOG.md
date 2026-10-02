@@ -6,7 +6,7 @@
 
 - 00d093c: Retry SQL errors marked retryable with persistent exponential backoff. Preserve the original query and time parameters across retries and restarts, and process overdue scheduled windows in order without blocking other alerts. Handler callbacks are not retried.
 - 52a5430: Attempt onFire and onResolve once, leaving retries to the caller. Remove retry policies and delivery attempt arguments, and retain handler failures on incidents without redelivering after restarts.
-  
+
   Persist evaluation failures and disable the affected alert until explicitly resumed, allowing other alerts and callbacks to continue.
 
 ### Patch Changes
