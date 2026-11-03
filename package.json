@@ -61,6 +61,7 @@
     "@typescript/native-preview": "7.0.0-dev.20260707.2",
     "@vitest/runner": "^4.1.11",
     "@vitest/snapshot": "^4.1.11",
+    "durability": "5.1.0",
     "oxfmt": "^0.71.0",
     "oxlint": "^1.86.0",
     "publint": "^0.3.24",

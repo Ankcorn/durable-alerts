@@ -20,6 +20,7 @@ export type {
   IncidentStatus,
   Json,
   JsonValue,
+  NamedAlarm,
   Query,
   ResolvedIncident,
   ResolvedIncidentOf,

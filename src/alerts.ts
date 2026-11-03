@@ -13,6 +13,7 @@ import type {
   IncidentRecord,
   IncidentStatus,
   Json,
+  NamedAlarm,
   ResolvedIncident,
   ResolveReason,
   Row,
@@ -137,12 +138,20 @@ class AlertsRuntime implements Alerts {
   readonly #sql: SqlStorage;
   readonly #options: AlertsOptions;
   readonly #entries = new Map<string, Entry>();
+  readonly #alarm: NamedAlarm;
+  /** The due time `#alarm` is armed for, when known. */
+  #armed: number | null | undefined;
   #reconciled = false;
   #lock: Promise<unknown> = Promise.resolve();
 
   constructor(ctx: DurableObjectState, options: AlertsOptions) {
     this.#ctx = ctx;
     this.#options = options;
+    this.#alarm =
+      options.alarm ??
+      Object.assign((at: number) => ctx.storage.setAlarm(at), {
+        cancel: () => ctx.storage.deleteAlarm()
+      });
     try {
       this.#sql = ctx.storage.sql;
       for (const statement of SCHEMA) this.#sql.exec(statement);
@@ -180,7 +189,7 @@ class AlertsRuntime implements Alerts {
     }
     this.#entries.set(spec.name, { spec, handlers: resolvedHandlers });
     if (this.#reconciled) {
-      this.#upsert(spec, this.#now());
+      this.#upsert(spec, Date.now());
       this.#schedule().catch((error: unknown) =>
         this.#report({ alert: spec.name, phase: "query", error })
       );
@@ -189,10 +198,13 @@ class AlertsRuntime implements Alerts {
   }
 
   async alarm(_info?: AlarmInvocationInfo): Promise<void> {
+    // This wake consumed the armed alarm, so the next #schedule() must arm
+    // again even if the due time is unchanged.
+    this.#armed = undefined;
     await this.ready;
     await this.#exclusive(async () => {
       try {
-        const now = this.#now();
+        const now = Date.now();
         const due = this.#sql
           .exec<Pick<AlertRow, "name" | "next_run_at">>(
             `SELECT name, next_run_at FROM ${ALERTS}
@@ -305,7 +317,7 @@ class AlertsRuntime implements Alerts {
         // Process an overdue window before allowing a newer manual window.
         const result = await this.#evaluate(
           name,
-          next_run_at <= this.#now() ? next_run_at : undefined
+          next_run_at <= Date.now() ? next_run_at : undefined
         );
         await this.#deliver();
         return result;
@@ -322,7 +334,7 @@ class AlertsRuntime implements Alerts {
       if (!incident) throw new Error(`Unknown incident "${incidentId}"`);
       if (incident.status === "resolved") return;
       this.#ctx.storage.transactionSync(() =>
-        this.#resolveIncident(incident, "manual", this.#now())
+        this.#resolveIncident(incident, "manual", Date.now())
       );
       try {
         await this.#deliver();
@@ -336,7 +348,7 @@ class AlertsRuntime implements Alerts {
     await this.ready;
     this.#entry(name);
     const until =
-      duration === undefined ? FOREVER : this.#now() + toMs(duration);
+      duration === undefined ? FOREVER : Date.now() + toMs(duration);
     this.#sql.exec(
       `UPDATE ${ALERTS} SET paused_until = ?, next_run_at = ? WHERE name = ?`,
       until,
@@ -353,7 +365,7 @@ class AlertsRuntime implements Alerts {
       `UPDATE ${ALERTS} SET paused_until = NULL, failed = 0, last_error = NULL,
          next_run_at = ?
        WHERE name = ?`,
-      this.#now(),
+      Date.now(),
       name
     );
     await this.#schedule();
@@ -362,7 +374,7 @@ class AlertsRuntime implements Alerts {
   // ── Declaration ────────────────────────────────────────────────────────────
 
   #reconcile(): void {
-    const now = this.#now();
+    const now = Date.now();
     this.#ctx.storage.transactionSync(() => {
       for (const { spec } of this.#entries.values()) this.#upsert(spec, now);
       const stored = this.#sql
@@ -445,7 +457,7 @@ class AlertsRuntime implements Alerts {
         `Alert "${name}" has failed; call resume() before checking it again`
       );
     }
-    const now = this.#now();
+    const now = Date.now();
     // A pending run owns this alert until its original window succeeds.
     if (stored.retry_at !== null && stored.retry_at > now) {
       return { fired: [], resolved: [] };
@@ -510,7 +522,7 @@ class AlertsRuntime implements Alerts {
         if (retryable) {
           this.#sql.exec(
             `UPDATE ${ALERTS} SET retry_at = ? WHERE name = ?`,
-            this.#now() + retryDelay,
+            Date.now() + retryDelay,
             name
           );
         } else this.#clearQuery(name);
@@ -839,7 +851,7 @@ class AlertsRuntime implements Alerts {
   }
 
   #toResolved(row: IncidentRow): ResolvedIncident<Row, string, Json> {
-    const resolvedAt = row.resolved_at ?? this.#now();
+    const resolvedAt = row.resolved_at ?? Date.now();
     return {
       ...this.#toIncident(row),
       resolvedAt: new Date(resolvedAt),
@@ -853,7 +865,7 @@ class AlertsRuntime implements Alerts {
   // ── Housekeeping ───────────────────────────────────────────────────────────
 
   #prune(): void {
-    const cutoff = this.#now() - toMs(this.#options.retention, 7 * 86_400_000);
+    const cutoff = Date.now() - toMs(this.#options.retention, 7 * 86_400_000);
     this.#sql.exec(
       `DELETE FROM ${INCIDENTS}
        WHERE status = 'resolved' AND resolved_at < ?
@@ -862,7 +874,7 @@ class AlertsRuntime implements Alerts {
     );
   }
 
-  /** Point the Durable Object alarm at the next check or pending delivery. */
+  /** Arm the alarm for the next check or pending delivery, or cancel it. */
   async #schedule(): Promise<void> {
     const next = this.#sql
       .exec<{ at: number | null }>(
@@ -874,15 +886,13 @@ class AlertsRuntime implements Alerts {
              WHERE fire_delivery = 'pending' OR resolve_delivery = 'pending'
          )`,
         FOREVER,
-        this.#now()
+        Date.now()
       )
       .one().at;
-    const storage = this.#ctx.storage;
-    if (next === null) {
-      await storage.deleteAlarm();
-      return;
-    }
-    if ((await storage.getAlarm()) !== next) await storage.setAlarm(next);
+    if (next === this.#armed) return;
+    if (next === null) await this.#alarm.cancel();
+    else await this.#alarm(next);
+    this.#armed = next;
   }
 
   // ── Helpers ────────────────────────────────────────────────────────────────
@@ -897,10 +907,6 @@ class AlertsRuntime implements Alerts {
     return this.#sql
       .exec<IncidentRow>(`SELECT * FROM ${INCIDENTS} WHERE id = ?`, id)
       .toArray()[0];
-  }
-
-  #now(): number {
-    return this.#options.now?.() ?? Date.now();
   }
 
   #report(

@@ -3,7 +3,13 @@
   "main": "./worker.ts",
   "compatibility_date": "2026-08-15",
   "durable_objects": {
-    "bindings": [{ "name": "ALERTS", "class_name": "TestAlerts" }]
+    "bindings": [
+      { "name": "ALERTS", "class_name": "TestAlerts" },
+      { "name": "SHARED", "class_name": "SharedAlerts" }
+    ]
   },
-  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["TestAlerts"] }]
+  "migrations": [
+    { "tag": "v1", "new_sqlite_classes": ["TestAlerts"] },
+    { "tag": "v2", "new_sqlite_classes": ["SharedAlerts"] }
+  ]
 }

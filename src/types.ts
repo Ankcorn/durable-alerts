@@ -246,8 +246,23 @@ export interface AlertsOptions {
   readonly retention?: Duration;
   /** Called when a query or handler fails. Defaults to `console.error`. */
   readonly onError?: (error: AlertError) => void;
-  /** Override the clock. Intended for tests. */
-  readonly now?: () => number;
+  /**
+   * A named alarm to schedule checks with, such as one from durability's
+   * `DurabilityAlarms`, so alerts can share the object's alarm with other
+   * timers. Its handler must call `alerts.alarm()`. Defaults to the Durable
+   * Object alarm, in which case forward the object's `alarm()` to
+   * `alerts.alarm()`.
+   */
+  readonly alarm?: NamedAlarm;
+}
+
+/**
+ * Schedules a single wake-up, replacing any pending one. A `DurabilityAlarms`
+ * method such as `this.alarms.alerts` fits as is.
+ */
+export interface NamedAlarm {
+  (scheduledTime: number): Promise<void>;
+  cancel(): Promise<unknown>;
 }
 
 /** The alerts attached to one Durable Object. */

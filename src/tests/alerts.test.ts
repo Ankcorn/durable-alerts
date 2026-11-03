@@ -3,7 +3,7 @@ import {
   evictDurableObject,
   runDurableObjectAlarm
 } from "cloudflare:test";
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { defineAlert, sql } from "../index";
 import { BASE, byScript } from "./worker";
 
@@ -16,11 +16,27 @@ function object() {
 
 type Stub = ReturnType<typeof object>;
 
+/** Move the fake clock forward. */
+function advance(ms: number) {
+  vi.setSystemTime(Date.now() + ms);
+}
+
 /** Move the fake clock forward, then run the scheduled alarm. */
 async function tick(stub: Stub, ms = MINUTE) {
-  await stub.advance(ms);
+  advance(ms);
   expect(await runDurableObjectAlarm(stub)).toBe(true);
 }
+
+// The Durable Objects run in this isolate, so faking `Date` here fakes their
+// clock too. Timers are faked as well so durability's in-memory timers never
+// run work behind a test's back: everything runs from the alarm a test runs.
+beforeEach(() => {
+  vi.useFakeTimers({
+    toFake: ["Date", "setTimeout", "clearTimeout"],
+    now: BASE
+  });
+  return () => vi.useRealTimers();
+});
 
 describe("alerts", () => {
   it("schedules the first check when the object is created", async () => {
@@ -238,9 +254,29 @@ describe("alerts", () => {
     await stub.pause("errors");
     await stub.pause("by-script");
     expect(await stub.alarmAt()).toBeNull();
-    await stub.advance(30_000);
+    advance(30_000);
     await stub.resume("errors"); // resuming checks straight away
     expect(await stub.alarmAt()).toBe(BASE + 30_000);
+  });
+});
+
+describe("alarm option", () => {
+  it("shares the object's alarm through a durability named alarm", async () => {
+    const stub = env.SHARED.getByName(`shared-${++counter}`);
+    await stub.ready();
+    await stub.remindAt(BASE + 30_000);
+
+    advance(30_000);
+    expect(await runDurableObjectAlarm(stub)).toBe(true);
+    expect(await stub.reminders()).toBe(1);
+    const [status] = await stub.status();
+    expect(status?.lastCheckedAt?.getTime()).toBe(BASE + 30_000);
+    expect(status?.nextCheckAt?.getTime()).toBe(BASE + MINUTE);
+
+    advance(MINUTE);
+    expect(await runDurableObjectAlarm(stub)).toBe(true);
+    const [next] = await stub.status();
+    expect(next?.lastCheckedAt?.getTime()).toBe(BASE + 90_000);
   });
 });
 
