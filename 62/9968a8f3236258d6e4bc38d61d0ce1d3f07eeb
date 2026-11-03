@@ -1,0 +1,39 @@
+.changeset/shared-alarm.md
+  s_05bc118d6a6c3e::t_8319750c76f981 1-7
+README.md
+  s_05bc118d6a6c3e::t_3f1ee76940ece1 148-179,189,193
+package.json
+  s_05bc118d6a6c3e::t_dd742acfe13e20 64
+pnpm-lock.yaml
+  s_05bc118d6a6c3e::t_e14f16d763b59d 35-37,83-99,207,284-301,1395,1401,1407,1413,1420,1427,1434,1441,1448,1455,1461,1467,1473,1479,1485,1491,1498,1505,1512,1519,1526,1533,1539,1545,1573-1575,1654-1661,2359-2371,2571-2584,3330-3331,3392-3404
+src/alerts.ts
+  s_05bc118d6a6c3e::t_0ec46964dcfaf6 16,141-143,150-154,192,201-203,207,320,337,351,368,377,460,525,854,868,877,889,892-895
+src/index.ts
+  s_05bc118d6a6c3e::t_654d2ec763f56f 23
+src/tests/alerts.test.ts
+  s_05bc118d6a6c3e::t_ed0208090590b1 6,19-23,26,30-40,257,263-282
+src/tests/env.d.ts
+  s_05bc118d6a6c3e::t_b3993266a4706c 4
+src/tests/worker.ts
+  s_05bc118d6a6c3e::t_8076e0502e1c9d 2,11-15,178-214
+src/tests/wrangler.jsonc
+  s_05bc118d6a6c3e::t_36db9171ba91af 6-9,11-14
+src/types.ts
+  s_05bc118d6a6c3e::t_e3effb8ac853b8 249-265
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "629968a8f3236258d6e4bc38d61d0ce1d3f07eeb",
+  "prompts": {},
+  "sessions": {
+    "s_05bc118d6a6c3e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "61c1af2b-7593-4644-baf0-a0370ad96d39",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Thomas Ankcorn <tankcorn@cloudflare.com>"
+    }
+  }
+}
