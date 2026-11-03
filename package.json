@@ -52,6 +52,9 @@
     "release": "pnpm run ci && changeset publish",
     "prepublishOnly": "pnpm run build"
   },
+  "dependencies": {
+    "durability": "file:vendor/durability-5.1.0-shared-named-alarms.tgz"
+  },
   "devDependencies": {
     "@arethetypeswrong/cli": "^0.18.5",
     "@changesets/changelog-github": "^1.0.1",
@@ -61,7 +64,6 @@
     "@typescript/native-preview": "7.0.0-dev.20260707.2",
     "@vitest/runner": "^4.1.11",
     "@vitest/snapshot": "^4.1.11",
-    "durability": "5.1.0",
     "oxfmt": "^0.71.0",
     "oxlint": "^1.86.0",
     "publint": "^0.3.24",

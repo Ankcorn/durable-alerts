@@ -1,3 +1,4 @@
+import { DurabilityAlarms } from "durability";
 import { groupRows, isBreach, isClear, validateSpec } from "./define";
 import { toMs } from "./duration";
 import type {
@@ -13,7 +14,6 @@ import type {
   IncidentRecord,
   IncidentStatus,
   Json,
-  NamedAlarm,
   ResolvedIncident,
   ResolveReason,
   Row,
@@ -65,6 +65,8 @@ type IncidentRow = {
   delivery_error: string | null;
 };
 
+/** The named alarm alerts own on the object's durability scheduler. */
+const ALARM = "durable-alerts";
 const ALERTS = "_durable_alerts";
 const INCIDENTS = "_durable_alerts_incidents";
 const PENDING = "_durable_alerts_pending";
@@ -138,8 +140,8 @@ class AlertsRuntime implements Alerts {
   readonly #sql: SqlStorage;
   readonly #options: AlertsOptions;
   readonly #entries = new Map<string, Entry>();
-  readonly #alarm: NamedAlarm;
-  /** The due time `#alarm` is armed for, when known. */
+  readonly #alarms: DurabilityAlarms<typeof ALARM>;
+  /** The due time the alarm is armed for, when known. */
   #armed: number | null | undefined;
   #reconciled = false;
   #lock: Promise<unknown> = Promise.resolve();
@@ -147,11 +149,14 @@ class AlertsRuntime implements Alerts {
   constructor(ctx: DurableObjectState, options: AlertsOptions) {
     this.#ctx = ctx;
     this.#options = options;
-    this.#alarm =
-      options.alarm ??
-      Object.assign((at: number) => ctx.storage.setAlarm(at), {
-        cancel: () => ctx.storage.deleteAlarm()
-      });
+    this.#alarms = new DurabilityAlarms({
+      ...(options.scheduler
+        ? { scheduler: options.scheduler }
+        : { context: ctx }),
+      handlers: { [ALARM]: () => this.#run() },
+      // A run only processes what is due, so retrying it is safe.
+      methods: { [ALARM]: { attemptTimeoutMs: 14 * 60_000 } }
+    });
     try {
       this.#sql = ctx.storage.sql;
       for (const statement of SCHEMA) this.#sql.exec(statement);
@@ -197,8 +202,13 @@ class AlertsRuntime implements Alerts {
     return this;
   }
 
-  async alarm(_info?: AlarmInvocationInfo): Promise<void> {
-    // This wake consumed the armed alarm, so the next #schedule() must arm
+  alarm(info?: AlarmInvocationInfo): Promise<void> {
+    return this.#alarms.alarm(info);
+  }
+
+  /** Run every due check and pending callback. */
+  async #run(): Promise<void> {
+    // This run consumed the armed alarm, so the next #schedule() must arm
     // again even if the due time is unchanged.
     this.#armed = undefined;
     await this.ready;
@@ -890,8 +900,8 @@ class AlertsRuntime implements Alerts {
       )
       .one().at;
     if (next === this.#armed) return;
-    if (next === null) await this.#alarm.cancel();
-    else await this.#alarm(next);
+    if (next === null) await this.#alarms[ALARM].cancel();
+    else await this.#alarms[ALARM](next);
     this.#armed = next;
   }
 

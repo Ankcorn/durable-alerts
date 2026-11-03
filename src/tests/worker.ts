@@ -175,7 +175,7 @@ export class TestAlerts extends DurableObject {
   }
 }
 
-/** Alerts sharing the object's alarm with another timer through durability. */
+/** Alerts sharing the object's scheduler with its own named alarms. */
 export class SharedAlerts extends DurableObject {
   remindersRun = 0;
   scheduler = new DurabilityScheduler({ context: this.ctx });
@@ -184,13 +184,12 @@ export class SharedAlerts extends DurableObject {
     handlers: {
       remind: async () => {
         this.remindersRun++;
-      },
-      alerts: (): Promise<void> => this.alerts.alarm()
+      }
     }
   });
   alerts = alerts(this.ctx, {
     sql: { query: async () => ({ data: [] }) },
-    alarm: this.alarms.alerts,
+    scheduler: this.scheduler,
     onError: () => {}
   }).watch(byScript, { onFire: () => {} });
 

@@ -2,6 +2,6 @@
 "durable-alerts": minor
 ---
 
-Add an `alarm` option that schedules checks through a named alarm, such as a durability `DurabilityAlarms` method, so alerts can share the Durable Object's alarm with other timers. Without it, alerts keep using the Durable Object alarm.
+Schedule checks through a durability named alarm, and add a `scheduler` option so alerts share the Durable Object's alarm with other durability helpers, including the object's own `DurabilityAlarms`. Without it, alerts create a private scheduler; forwarding `alarm()` to `alerts.alarm()` still works.
 
-Breaking: remove the `now` option. Alerts read the time from `Date.now()`; control it in tests with fake timers.
+Breaking: remove the `now` option. Alerts read the time from `Date.now()`, as durability does; control it in tests with fake timers.

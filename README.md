@@ -147,7 +147,7 @@ Resolved incidents are kept for 7 days (`retention` option).
 
 ### Sharing the alarm
 
-A Durable Object has one alarm, and by default alerts use it. To share it with other timers, pass a [durability](https://durability.shirei.dev/primitives/alarms/) named alarm as `alarm` and call `alerts.alarm()` from its handler:
+A Durable Object has one alarm. Alerts schedule through [durability](https://durability.shirei.dev/primitives/alarms/) and own a named alarm called `durable-alerts`. To share the alarm with other durability helpers, including your own `DurabilityAlarms`, pass the object's scheduler and forward `alarm()` to it:
 
 ```ts
 import { DurableObject } from "cloudflare:workers";
@@ -158,15 +158,11 @@ export class Oncall extends DurableObject<Env> {
   scheduler = new DurabilityScheduler({ context: this.ctx });
   alarms = new DurabilityAlarms({
     scheduler: this.scheduler,
-    handlers: {
-      digest: () => sendDigest(),
-      // Annotate the return type: `alarms` and `alerts` refer to each other.
-      alerts: (): Promise<void> => this.alerts.alarm()
-    }
+    handlers: { digest: () => sendDigest() }
   });
   alerts = alerts(this.ctx, {
     sql: this.env.ANALYTICS,
-    alarm: this.alarms.alerts
+    scheduler: this.scheduler
   }).watch({ ... });
 
   alarm(info?: AlarmInvocationInfo) {
@@ -174,8 +170,6 @@ export class Oncall extends DurableObject<Env> {
   }
 }
 ```
-
-Any function that schedules a single wake-up at a timestamp, replacing the pending one, and has a `cancel()` method works as `alarm`.
 
 ### Testing
 
@@ -190,7 +184,7 @@ Pass any object with a `query()` method as `sql`. Alerts read the time from `Dat
 
 ## Things to know
 
-- **It uses the object's alarm by default.** Forward `alarm()` to `alerts.alarm()`, or pass `alarm` to [share it](#sharing-the-alarm).
+- **It uses the object's alarm.** Forward `alarm()` to `alerts.alarm()`, or pass `scheduler` to [share it](#sharing-the-alarm). Without `scheduler`, alerts create a private one, so don't use another durability scheduler or `setAlarm()` in the same object.
 - **The first check needs a wake.** A Durable Object only runs when something calls it, so call it once after deploying, for example from a cron trigger that awaits `alerts.ready`.
 - **One `alerts()` per object.** The tables are named `_durable_alerts*`.
 

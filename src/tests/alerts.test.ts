@@ -27,6 +27,12 @@ async function tick(stub: Stub, ms = MINUTE) {
   expect(await runDurableObjectAlarm(stub)).toBe(true);
 }
 
+/** When the next check of `name` is due. */
+async function nextCheck(stub: Stub, name = "errors") {
+  const status = (await stub.status()).find((s) => s.name === name);
+  return status?.nextCheckAt?.getTime();
+}
+
 // The Durable Objects run in this isolate, so faking `Date` here fakes their
 // clock too. Timers are faked as well so durability's in-memory timers never
 // run work behind a test's back: everything runs from the alarm a test runs.
@@ -41,7 +47,8 @@ beforeEach(() => {
 describe("alerts", () => {
   it("schedules the first check when the object is created", async () => {
     const stub = object();
-    expect(await stub.alarmAt()).toBe(BASE);
+    expect(await nextCheck(stub)).toBe(BASE);
+    expect(await stub.alarmAt()).not.toBeNull();
     const status = await stub.status();
     expect(status.map((s) => s.name)).toEqual(["by-script", "errors"]);
   });
@@ -94,7 +101,7 @@ describe("alerts", () => {
       end: new Date(BASE).toISOString()
     });
     expect(queries[1]?.end).toBe(new Date(BASE + MINUTE).toISOString());
-    expect(await stub.alarmAt()).toBe(BASE + 2 * MINUTE);
+    expect(await nextCheck(stub)).toBe(BASE + 2 * MINUTE);
   });
 
   it("opens one incident per key from a single grouped query", async () => {
@@ -177,7 +184,7 @@ describe("alerts", () => {
     expect((await stub.incidents("open"))[0]?.deliveryError).toBe(
       "fire failed"
     );
-    expect(await stub.alarmAt()).toBe(BASE + MINUTE);
+    expect(await nextCheck(stub)).toBe(BASE + MINUTE);
     await tick(stub);
     expect(await stub.calls()).toEqual([]);
     await stub.setRows("errors", [{ errors: 0 }]);
@@ -204,7 +211,7 @@ describe("alerts", () => {
     await stub.setRows("errors", [{ errors: 90 }]);
     const result = await stub.check("errors");
     expect(result.fired).toHaveLength(1);
-    expect(await stub.alarmAt()).toBe(BASE + MINUTE);
+    expect(await nextCheck(stub)).toBe(BASE + MINUTE);
   });
 
   it("records query errors and keeps the schedule", async () => {
@@ -213,7 +220,7 @@ describe("alerts", () => {
     await tick(stub, 0);
     const errors = (await stub.status()).find((s) => s.name === "errors");
     expect(errors?.lastError).toBe("table not found");
-    expect(await stub.alarmAt()).toBe(BASE + MINUTE);
+    expect(await nextCheck(stub)).toBe(BASE + MINUTE);
   });
 
   it("does not redeliver a failed callback after a restart", async () => {
@@ -256,12 +263,13 @@ describe("alerts", () => {
     expect(await stub.alarmAt()).toBeNull();
     advance(30_000);
     await stub.resume("errors"); // resuming checks straight away
-    expect(await stub.alarmAt()).toBe(BASE + 30_000);
+    expect(await nextCheck(stub)).toBe(BASE + 30_000);
+    expect(await stub.alarmAt()).not.toBeNull();
   });
 });
 
-describe("alarm option", () => {
-  it("shares the object's alarm through a durability named alarm", async () => {
+describe("scheduler option", () => {
+  it("shares the object's alarm with its own named alarms", async () => {
     const stub = env.SHARED.getByName(`shared-${++counter}`);
     await stub.ready();
     await stub.remindAt(BASE + 30_000);

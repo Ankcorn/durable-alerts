@@ -1,3 +1,5 @@
+import type { DurabilityScheduler } from "durability";
+
 /** A duration such as `"30s"`, `"5m"`, `"1h"` or `"7d"`. */
 export type Duration = `${number}${"s" | "m" | "h" | "d"}`;
 
@@ -247,22 +249,11 @@ export interface AlertsOptions {
   /** Called when a query or handler fails. Defaults to `console.error`. */
   readonly onError?: (error: AlertError) => void;
   /**
-   * A named alarm to schedule checks with, such as one from durability's
-   * `DurabilityAlarms`, so alerts can share the object's alarm with other
-   * timers. Its handler must call `alerts.alarm()`. Defaults to the Durable
-   * Object alarm, in which case forward the object's `alarm()` to
-   * `alerts.alarm()`.
+   * The object's durability scheduler, so alerts share its alarm with other
+   * durability helpers, including the object's own `DurabilityAlarms`.
+   * Without it, alerts create a private scheduler.
    */
-  readonly alarm?: NamedAlarm;
-}
-
-/**
- * Schedules a single wake-up, replacing any pending one. A `DurabilityAlarms`
- * method such as `this.alarms.alerts` fits as is.
- */
-export interface NamedAlarm {
-  (scheduledTime: number): Promise<void>;
-  cancel(): Promise<unknown>;
+  readonly scheduler?: DurabilityScheduler;
 }
 
 /** The alerts attached to one Durable Object. */
