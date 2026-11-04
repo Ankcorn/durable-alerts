@@ -268,8 +268,8 @@ describe("alerts", () => {
   });
 });
 
-describe("scheduler option", () => {
-  it("shares the object's alarm with its own named alarms", async () => {
+describe("sharing the object's alarm", () => {
+  it("runs alongside the object's own named alarms, with no scheduler passed", async () => {
     const stub = env.SHARED.getByName(`shared-${++counter}`);
     await stub.ready();
     await stub.remindAt(BASE + 30_000);
@@ -285,6 +285,17 @@ describe("scheduler option", () => {
     expect(await runDurableObjectAlarm(stub)).toBe(true);
     const [next] = await stub.status();
     expect(next?.lastCheckedAt?.getTime()).toBe(BASE + 90_000);
+  });
+
+  it("runs alongside the object's durable operations", async () => {
+    const stub = env.SHARED.getByName(`shared-${++counter}`);
+    await stub.ready();
+    await stub.tidy();
+
+    expect(await runDurableObjectAlarm(stub)).toBe(true);
+    expect(await stub.jobCount()).toBe(1);
+    const [status] = await stub.status();
+    expect(status?.lastCheckedAt?.getTime()).toBe(BASE);
   });
 });
 

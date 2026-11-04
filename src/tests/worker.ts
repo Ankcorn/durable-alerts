@@ -1,5 +1,5 @@
 import { DurableObject } from "cloudflare:workers";
-import { DurabilityAlarms, DurabilityScheduler } from "durability";
+import { Durability, DurabilityAlarms } from "durability";
 import {
   alerts,
   defineAlert,
@@ -175,26 +175,39 @@ export class TestAlerts extends DurableObject {
   }
 }
 
-/** Alerts sharing the object's scheduler with its own named alarms. */
+/**
+ * An object with its own durability helpers next to alerts. Every helper is
+ * built from the object's context, so they all join its one scheduler: no
+ * scheduler is passed around.
+ */
 export class SharedAlerts extends DurableObject {
   remindersRun = 0;
-  scheduler = new DurabilityScheduler({ context: this.ctx });
+  jobsRun = 0;
   alarms = new DurabilityAlarms({
-    scheduler: this.scheduler,
+    context: this.ctx,
     handlers: {
       remind: async () => {
         this.remindersRun++;
       }
     }
   });
+  jobs = new Durability({
+    context: this.ctx,
+    handlers: {
+      tidy: async () => {
+        this.jobsRun++;
+        return "tidied";
+      }
+    }
+  });
   alerts = alerts(this.ctx, {
     sql: { query: async () => ({ data: [] }) },
-    scheduler: this.scheduler,
     onError: () => {}
   }).watch(byScript, { onFire: () => {} });
 
+  /** Forwarded to the app's own helper; it runs the alerts' checks too. */
   alarm(info?: AlarmInvocationInfo) {
-    return this.scheduler.alarm(info);
+    return this.alarms.alarm(info);
   }
 
   async ready() {
@@ -205,6 +218,12 @@ export class SharedAlerts extends DurableObject {
   }
   reminders() {
     return this.remindersRun;
+  }
+  async tidy() {
+    await this.jobs.tidy({ id: "tidy:1", payload: {} });
+  }
+  jobCount() {
+    return this.jobsRun;
   }
   status() {
     return this.alerts.status();

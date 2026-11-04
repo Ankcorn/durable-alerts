@@ -1,5 +1,3 @@
-import type { DurabilityScheduler } from "durability";
-
 /** A duration such as `"30s"`, `"5m"`, `"1h"` or `"7d"`. */
 export type Duration = `${number}${"s" | "m" | "h" | "d"}`;
 
@@ -248,12 +246,6 @@ export interface AlertsOptions {
   readonly retention?: Duration;
   /** Called when a query or handler fails. Defaults to `console.error`. */
   readonly onError?: (error: AlertError) => void;
-  /**
-   * The object's durability scheduler, so alerts share its alarm with other
-   * durability helpers, including the object's own `DurabilityAlarms`.
-   * Without it, alerts create a private scheduler.
-   */
-  readonly scheduler?: DurabilityScheduler;
 }
 
 /** The alerts attached to one Durable Object. */

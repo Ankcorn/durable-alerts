@@ -147,29 +147,31 @@ Resolved incidents are kept for 7 days (`retention` option).
 
 ### Sharing the alarm
 
-A Durable Object has one alarm. Alerts schedule through [durability](https://durability.shirei.dev/primitives/alarms/) and own a named alarm called `durable-alerts`. To share the alarm with other durability helpers, including your own `DurabilityAlarms`, pass the object's scheduler and forward `alarm()` to it:
+A Durable Object has one alarm. Alerts schedule through [durability](https://durability.shirei.dev/primitives/alarms/) with a named alarm called `durable-alerts`, built from the object's context. Every durability helper built from the same context joins the object's one scheduler, so alerts share the alarm with your own durability helpers without passing anything around. Forward `alarm()` to `alerts.alarm()` or to any of your helpers: each runs the due work of all of them.
 
 ```ts
 import { DurableObject } from "cloudflare:workers";
-import { DurabilityAlarms, DurabilityScheduler } from "durability";
+import { Durability, DurabilityAlarms } from "durability";
 import { alerts } from "durable-alerts";
 
 export class Oncall extends DurableObject<Env> {
-  scheduler = new DurabilityScheduler({ context: this.ctx });
   alarms = new DurabilityAlarms({
-    scheduler: this.scheduler,
+    context: this.ctx,
     handlers: { digest: () => sendDigest() }
   });
-  alerts = alerts(this.ctx, {
-    sql: this.env.ANALYTICS,
-    scheduler: this.scheduler
-  }).watch({ ... });
+  jobs = new Durability({
+    context: this.ctx,
+    handlers: { page: ({ payload }) => page(payload) }
+  });
+  alerts = alerts(this.ctx, { sql: this.env.ANALYTICS }).watch({ ... });
 
   alarm(info?: AlarmInvocationInfo) {
-    return this.scheduler.alarm(info);
+    return this.alarms.alarm(info); // also runs the alerts' checks and the jobs
   }
 }
 ```
+
+Your own `DurabilityAlarms` can use any names except `durable-alerts`. Install durability once per Worker (it is a peer dependency): a second copy reaching the same object throws instead of fighting over the alarm.
 
 ### Testing
 
@@ -184,7 +186,7 @@ Pass any object with a `query()` method as `sql`. Alerts read the time from `Dat
 
 ## Things to know
 
-- **It uses the object's alarm.** Forward `alarm()` to `alerts.alarm()`, or pass `scheduler` to [share it](#sharing-the-alarm). Without `scheduler`, alerts create a private one, so don't use another durability scheduler or `setAlarm()` in the same object.
+- **It uses the object's alarm through durability.** Forward `alarm()` to `alerts.alarm()` or any durability helper on the object ([sharing the alarm](#sharing-the-alarm)). Don't call `setAlarm()` yourself, and don't put alerts in an object whose alarm something else owns, such as an Agents SDK agent.
 - **The first check needs a wake.** A Durable Object only runs when something calls it, so call it once after deploying, for example from a cron trigger that awaits `alerts.ready`.
 - **One `alerts()` per object.** The tables are named `_durable_alerts*`.
 

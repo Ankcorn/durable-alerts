@@ -149,10 +149,10 @@ class AlertsRuntime implements Alerts {
   constructor(ctx: DurableObjectState, options: AlertsOptions) {
     this.#ctx = ctx;
     this.#options = options;
+    // Built from the object's context, so it joins the object's one durability
+    // scheduler and shares the alarm with the app's own durability helpers.
     this.#alarms = new DurabilityAlarms({
-      ...(options.scheduler
-        ? { scheduler: options.scheduler }
-        : { context: ctx }),
+      context: ctx,
       handlers: { [ALARM]: () => this.#run() },
       // A run only processes what is due, so retrying it is safe.
       methods: { [ALARM]: { attemptTimeoutMs: 14 * 60_000 } }
@@ -946,7 +946,8 @@ class AlertsRuntime implements Alerts {
 
 /**
  * Attach alerts to a Durable Object. Declare them with `.watch()` in a field
- * initializer, and forward the object's `alarm()` to `alerts.alarm()`.
+ * initializer, and forward the object's `alarm()` to `alerts.alarm()` or to any
+ * other durability helper on the object: each runs the due work of all of them.
  *
  * ```ts
  * export class Oncall extends DurableObject<Env> {

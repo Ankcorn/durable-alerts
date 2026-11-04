@@ -7,10 +7,6 @@ settings:
 importers:
 
   .:
-    dependencies:
-      durability:
-        specifier: file:vendor/durability-5.1.0-shared-named-alarms.tgz
-        version: file:vendor/durability-5.1.0-shared-named-alarms.tgz(@cloudflare/workers-types@5.20261001.1)(better-result@2.10.0)(vite@8.3.1(esbuild@0.28.1)(yaml@2.9.1))(wrangler@4.145.0(@cloudflare/workers-types@5.20261001.1))
     devDependencies:
       '@arethetypeswrong/cli':
         specifier: ^0.18.5
@@ -36,6 +32,9 @@ importers:
       '@vitest/snapshot':
         specifier: ^4.1.11
         version: 4.1.11
+      durability:
+        specifier: file:vendor/durability-5.1.0-pr101-pr102.tgz
+        version: file:vendor/durability-5.1.0-pr101-pr102.tgz(@cloudflare/workers-types@5.20261001.1)(better-result@2.10.0)(vite@8.3.1(esbuild@0.28.1)(yaml@2.9.1))(wrangler@4.145.0(@cloudflare/workers-types@5.20261001.1))
       oxfmt:
         specifier: ^0.71.0
         version: 0.71.0
@@ -1652,8 +1651,8 @@ packages:
       oxc-resolver:
         optional: true
 
-  durability@file:vendor/durability-5.1.0-shared-named-alarms.tgz:
-    resolution: {integrity: sha512-X8wtR2y90Vtf9qqUdowUcIsaAkCimhT14QVtqRc/JSbvH49xO+8Y9HVqB97lp3WLF9naLjme5U/zoVJ/9OAKIQ==, tarball: file:vendor/durability-5.1.0-shared-named-alarms.tgz}
+  durability@file:vendor/durability-5.1.0-pr101-pr102.tgz:
+    resolution: {integrity: sha512-K4zjZwwuR/lcmSXUNSDRIrDzzMGnN3i1pG38gqL+mwOpRent/rUahUOQcyQcWM3zHswbqulYvfSdHW1cBu59cA==, tarball: file:vendor/durability-5.1.0-pr101-pr102.tgz}
     version: 5.1.0
     peerDependencies:
       '@cloudflare/workers-types': ^4.20260702.1
@@ -3391,7 +3390,7 @@ snapshots:
 
   dts-resolver@3.0.0: {}
 
-  durability@file:vendor/durability-5.1.0-shared-named-alarms.tgz(@cloudflare/workers-types@5.20261001.1)(better-result@2.10.0)(vite@8.3.1(esbuild@0.28.1)(yaml@2.9.1))(wrangler@4.145.0(@cloudflare/workers-types@5.20261001.1)):
+  durability@file:vendor/durability-5.1.0-pr101-pr102.tgz(@cloudflare/workers-types@5.20261001.1)(better-result@2.10.0)(vite@8.3.1(esbuild@0.28.1)(yaml@2.9.1))(wrangler@4.145.0(@cloudflare/workers-types@5.20261001.1)):
     dependencies:
       '@durability/storage': 0.1.1
       '@durability/transforms': 0.6.0(@cloudflare/workers-types@5.20261001.1)(better-result@2.10.0)(vite@8.3.1(esbuild@0.28.1)(yaml@2.9.1))(wrangler@4.145.0(@cloudflare/workers-types@5.20261001.1))
