@@ -1,4 +1,5 @@
 import { DurableObject } from "cloudflare:workers";
+import { Durability, DurabilityAlarms } from "durability";
 import {
   alerts,
   defineAlert,
@@ -7,7 +8,11 @@ import {
   type Row
 } from "../index";
 
-/** Far in the future so workerd never runs a fake-time alarm on its own. */
+/**
+ * The tests fake `Date` (shared with this worker, which runs in the same
+ * isolate) so durability's scheduler and the alerts share one clock. Far in
+ * the future so workerd never runs an alarm on its own.
+ */
 export const BASE = Date.UTC(2100, 0, 1);
 
 type Call = {
@@ -35,8 +40,6 @@ export const byScript = defineAlert({
 });
 
 export class TestAlerts extends DurableObject {
-  // The fake clock survives eviction so restart tests stay deterministic.
-  now = (this.ctx.storage.kv.get<number>("now") ?? BASE) as number;
   rows: Record<string, Row[]> = {};
   failures = { fire: 0, resolve: 0 };
   queryLog: Array<{ alert: string; start: string; end: string }> = [];
@@ -61,7 +64,6 @@ export class TestAlerts extends DurableObject {
 
   alerts = alerts(this.ctx, {
     sql: this.fakeSql,
-    now: () => this.now,
     onError: () => {}
   }).watch(byScript, {
     onFire: (incident) => {
@@ -132,13 +134,6 @@ export class TestAlerts extends DurableObject {
   }
 
   // ── test controls ──
-  setNow(now: number) {
-    this.now = now;
-    this.ctx.storage.kv.put("now", now);
-  }
-  advance(ms: number) {
-    this.setNow(this.now + ms);
-  }
   dropErrorsOnNextStart() {
     this.ctx.storage.kv.put("drop-errors", true);
   }
@@ -177,6 +172,61 @@ export class TestAlerts extends DurableObject {
   }
   resume(name: string) {
     return this.alerts.resume(name);
+  }
+}
+
+/**
+ * An object with its own durability helpers next to alerts. Every helper is
+ * built from the object's context, so they all join its one scheduler: no
+ * scheduler is passed around.
+ */
+export class SharedAlerts extends DurableObject {
+  remindersRun = 0;
+  jobsRun = 0;
+  alarms = new DurabilityAlarms({
+    context: this.ctx,
+    handlers: {
+      remind: async () => {
+        this.remindersRun++;
+      }
+    }
+  });
+  jobs = new Durability({
+    context: this.ctx,
+    handlers: {
+      tidy: async () => {
+        this.jobsRun++;
+        return "tidied";
+      }
+    }
+  });
+  alerts = alerts(this.ctx, {
+    sql: { query: async () => ({ data: [] }) },
+    onError: () => {}
+  }).watch(byScript, { onFire: () => {} });
+
+  /** Forwarded to the app's own helper; it runs the alerts' checks too. */
+  alarm(info?: AlarmInvocationInfo) {
+    return this.alarms.alarm(info);
+  }
+
+  async ready() {
+    await this.alerts.ready;
+  }
+  remindAt(at: number) {
+    return this.alarms.remind(at);
+  }
+  reminders() {
+    return this.remindersRun;
+  }
+  async tidy() {
+    await this.jobs.tidy({ id: "tidy:1", payload: {} });
+  }
+  jobCount() {
+    return this.jobsRun;
+  }
+  status() {
+    return this.alerts.status();
   }
 }
 

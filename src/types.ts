@@ -246,8 +246,6 @@ export interface AlertsOptions {
   readonly retention?: Duration;
   /** Called when a query or handler fails. Defaults to `console.error`. */
   readonly onError?: (error: AlertError) => void;
-  /** Override the clock. Intended for tests. */
-  readonly now?: () => number;
 }
 
 /** The alerts attached to one Durable Object. */
